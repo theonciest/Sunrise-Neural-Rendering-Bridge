@@ -12,6 +12,19 @@
 
 > NVIDIA runtime files are not included.
 
+Get the NVIDIA Neural Rendering runtime
+
+This project cannot redistribute nvngx_dlssnr.dll.
+
+Recommended: obtain the DLSS 5 runtime through the RenoDX community/RHI tooling.
+
+RenoDX Discord: DLSS5 channel → pinned messages.
+
+Once obtained, copy nvngx_dlssnr.dll into:
+USER-RUNTIME\NVIDIA\
+
+Then run BOOTSTRAP-NVIDIA-RUNTIME.bat.
+
 ## Install
 
 1. Download the latest release and extract it.
