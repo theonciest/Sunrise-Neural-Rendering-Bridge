@@ -4,30 +4,70 @@
 
 ## Requirements
 
-- Project Sunrise
+- A working Project Sunrise install
 - NVIDIA RTX GPU
 - Current NVIDIA graphics driver
+- **ReShade 6.8.0 Add-on Support**
 - `nvngx_dlss.dll`
 - `nvngx_dlssnr.dll`
 
 > NVIDIA runtime files are not included.
 
-### Getting `nvngx_dlssnr.dll`
+## Install
 
-Join the **RenoDX Discord**, go to **`#dlss5-downloads`**, and check the pinned/current DLSS 5 downloads.
+### 1. Install ReShade first
 
-For **RTX 20 / 30 / 40 series**, RenoDX currently provides a patched `nvngx_dlssnr.dll` in that channel. Use the version appropriate for your GPU.
+Download **ReShade 6.8.0 with Add-on Support** from the official ReShade site.
 
-Once obtained, put `nvngx_dlssnr.dll` in:
+Run the installer and point it at your Project Sunrise `destiny2.exe`.
+
+Choose:
+
+**DirectX 10 / 11 / 12**
+
+Launch Project Sunrise once after installing ReShade. Press **Home** and confirm the ReShade overlay opens.
+
+**If ReShade does not load, stop here and fix that first. The bridge will not work until the game-side ReShade installation is working.**
+
+### 2. Install the bridge
+
+Download the latest Sunrise Neural Rendering Bridge release and extract it.
+
+Copy the **contents** of the extracted folder into your Project Sunrise root — the same folder that contains `destiny2.exe`.
+
+### 3. Supply the NVIDIA runtime
+
+Put both of these files in:
 
 `USER-RUNTIME\NVIDIA\`
 
-## Install
+- `nvngx_dlss.dll`
+- `nvngx_dlssnr.dll`
 
-1. Download the latest release and extract it.
-2. Put `nvngx_dlss.dll` and `nvngx_dlssnr.dll` in `USER-RUNTIME\NVIDIA`.
-3. Run `BOOTSTRAP-NVIDIA-RUNTIME.bat`.
-4. Launch Project Sunrise normally.
+For `nvngx_dlssnr.dll`:
+
+- **RTX 50 series:** use the normal NVIDIA-signed DLSS-NR 310.8 runtime from the current RenoDX DLSS5 / DLSS Tool (ShortFuse Version) downloads.
+- **RTX 20 / 30 / 40 series:** use ShortFuse's cross-generation patched DLSS-NR 310.8 runtime from the RenoDX DLSS5 forum/downloads.
+
+The Runtime Bootstrapper validates the supplied runtime by SHA-256 and stops instead of guessing if the DLSS-NR file is not one of the validated builds.
+
+### 4. Run the Runtime Bootstrapper
+
+Double-click:
+
+`BOOTSTRAP-NVIDIA-RUNTIME.bat`
+
+The bootstrapper validates the NVIDIA files and installs them into the bridge runtime locations.
+
+When rerun, the bootstrapper should offer install/repair, remove, or exit. Removal must only remove files that match known installed runtime hashes and must leave unknown/user-modified files alone.
+
+### 5. Launch Project Sunrise
+
+Launch Project Sunrise normally.
+
+- **Home** → ReShade
+- **Insert** → Project Sunrise UI
+- The separate D3D12 host window is expected and should remain open while using the bridge.
 
 **Tested on GeForce RTX 3080 Ti 12 GB.**
 
@@ -71,12 +111,6 @@ Sunrise Neural Rendering Bridge captures color, depth, motion, and rendering met
 This repository is a Project Sunrise-focused fork of **DLSS5-Feeder by Jean-Laurent ROUZIES**. The upstream project established the core feeder-to-external-host architecture. This fork adds Sunrise integration, diagnostics, the external D3D12 neural-rendering host, Neural Rendering Work Scale controls, packaging, and experimental FidelityFX frame-generation integration.
 
 The bridge does not contain NVIDIA's proprietary neural-rendering runtime. Users supply the required NVIDIA runtime files separately.
-
-### NVIDIA runtime
-
-`nvngx_dlss.dll` is available from NVIDIA's official DLSS repository. `nvngx_dlssnr.dll` must be supplied by the user; current RenoDX DLSS 5 downloads are available through the RenoDX Discord `#dlss5-downloads` channel.
-
-The Runtime Bootstrapper validates the supplied binaries and reports their version/hash before use.
 
 ---
 
