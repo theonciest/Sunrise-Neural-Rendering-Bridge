@@ -12,18 +12,15 @@
 
 > NVIDIA runtime files are not included.
 
-Get the NVIDIA Neural Rendering runtime
+### Getting `nvngx_dlssnr.dll`
 
-This project cannot redistribute nvngx_dlssnr.dll.
+Join the **RenoDX Discord**, go to **`#dlss5-downloads`**, and check the pinned/current DLSS 5 downloads.
 
-Recommended: obtain the DLSS 5 runtime through the RenoDX community/RHI tooling.
+For **RTX 20 / 30 / 40 series**, RenoDX currently provides a patched `nvngx_dlssnr.dll` in that channel. Use the version appropriate for your GPU.
 
-RenoDX Discord: DLSS5 channel → pinned messages.
+Once obtained, put `nvngx_dlssnr.dll` in:
 
-Once obtained, copy nvngx_dlssnr.dll into:
-USER-RUNTIME\NVIDIA\
-
-Then run BOOTSTRAP-NVIDIA-RUNTIME.bat.
+`USER-RUNTIME\NVIDIA\`
 
 ## Install
 
@@ -77,7 +74,7 @@ The bridge does not contain NVIDIA's proprietary neural-rendering runtime. Users
 
 ### NVIDIA runtime
 
-`nvngx_dlss.dll` is available from NVIDIA's official DLSS repository. `nvngx_dlssnr.dll` must be supplied by the user from a legitimate NVIDIA-provided source.
+`nvngx_dlss.dll` is available from NVIDIA's official DLSS repository. `nvngx_dlssnr.dll` must be supplied by the user; current RenoDX DLSS 5 downloads are available through the RenoDX Discord `#dlss5-downloads` channel.
 
 The Runtime Bootstrapper validates the supplied binaries and reports their version/hash before use.
 
