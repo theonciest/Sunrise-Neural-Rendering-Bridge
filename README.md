@@ -2,6 +2,8 @@
 
 **DLSS Neural Rendering for Project Sunrise via a D3D11 → D3D12 external host.**
 
+> **Important:** Install and verify **ReShade 6.8.0 with Add-on Support first**, then install Sunrise Neural Rendering Bridge **over that ReShade installation**. The release includes a Project Sunrise-compatible ReShade 6.8.0 build. Do **not** reinstall or update stock ReShade over Sunrise NRB afterward, or the Project Sunrise **Insert** UI may stop working again.
+
 ## Validated coexistence architecture
 
 As of **v0.1.1-alpha**, the tested Project Sunrise path keeps all three components alive at the same time:
@@ -24,6 +26,8 @@ On the validated RTX 3080 Ti configuration:
 - A working Project Sunrise install
 - NVIDIA RTX GPU
 - Current NVIDIA graphics driver
+- **ReShade 6.8.0 with Add-on Support**
+- **LumeniteFX**
 - `nvngx_dlss.dll`
 - `nvngx_dlssnr.dll`
 
@@ -31,16 +35,74 @@ On the validated RTX 3080 Ti configuration:
 
 ## Install
 
-1. Download the latest release and extract its **contents** into the Project Sunrise root, next to `destiny2.exe`.
-2. Put your own legitimate NVIDIA runtime files in `USER-RUNTIME\NVIDIA\`:
-   - `nvngx_dlss.dll`
-   - `nvngx_dlssnr.dll`
-3. Run the included NVIDIA runtime bootstrapper if the release provides it.
-4. Launch with:
+### 1. Start with a working Project Sunrise install
 
-   `SUNRISE-NRB.bat`
+Make sure Project Sunrise launches normally before installing Sunrise Neural Rendering Bridge.
 
-Do **not** replace Project Sunrise's `bin\x64\steam_api64.dll`.
+Do **not** replace or modify:
+
+`bin\x64\steam_api64.dll`
+
+### 2. Install ReShade 6.8.0 with Add-on Support **first**
+
+Install **ReShade 6.8.0 with Add-on Support** to your Project Sunrise `destiny2.exe`.
+
+Choose:
+
+**DirectX 10 / 11 / 12**
+
+Install **LumeniteFX** and any other ReShade effects you want.
+
+Launch Project Sunrise once at this point and press **Home** to confirm the normal ReShade overlay opens.
+
+If ReShade does not work here, stop and fix the base ReShade installation before continuing.
+
+### 3. Install Sunrise Neural Rendering Bridge
+
+Download the latest Sunrise Neural Rendering Bridge release.
+
+Extract the **contents of the ZIP directly into your Project Sunrise root**, next to:
+
+`destiny2.exe`
+
+Allow the release files to overwrite the stock ReShade DLL when prompted.
+
+> **Do not reinstall or update stock ReShade after this step.** Sunrise NRB includes a patched ReShade 6.8.0 compatibility build that preserves Project Sunrise's **Insert** UI while keeping ReShade/DLSS active.
+
+### 4. Supply the NVIDIA runtime
+
+Put your own legitimate copies of:
+
+- `nvngx_dlss.dll`
+- `nvngx_dlssnr.dll`
+
+into:
+
+`USER-RUNTIME\NVIDIA\`
+
+NVIDIA runtime binaries are not distributed with this project.
+
+### 5. Install/bootstrap the NVIDIA runtime
+
+If your release package contains:
+
+`BOOTSTRAP-NVIDIA-RUNTIME.bat`
+
+run it and follow the prompts to install/repair the supplied NVIDIA runtime files.
+
+### 6. Launch Project Sunrise through Sunrise NRB
+
+Run:
+
+`SUNRISE-NRB.bat`
+
+Do **not** use the older experimental SunriseNRB launchers.
+
+When everything is working:
+
+- **Home** → ReShade
+- **Insert** → Project Sunrise UI
+- DLSS Neural Rendering should be available through the bridge
 
 The V7 launcher injects one small bridge DLL. That bridge waits until Project Sunrise's Steam module exists, then immediately loads the patched ReShade build. There is no post-module timing sweep and no remote ReShade injection.
 
