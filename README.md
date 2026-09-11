@@ -16,7 +16,7 @@ The compatibility fix is intentionally narrow: ReShade continues to proxy the re
 
 On the validated RTX 3080 Ti configuration:
 
-- **Home** opens ReShade.
+- **Ctrl + Shift + O** opens ReShade.
 - **Insert** opens the Project Sunrise UI.
 - DLSS Neural Rendering remains active.
 - Project Sunrise's protected `steam_api64.dll` remains byte-for-byte unchanged.
@@ -53,7 +53,7 @@ Choose:
 
 Install **LumeniteFX** and any other ReShade effects you want.
 
-Launch Project Sunrise once at this point and press **Home** to confirm the normal ReShade overlay opens.
+Launch Project Sunrise once at this point and press **Ctrl + Shift + O** to confirm the normal ReShade overlay opens.
 
 If ReShade does not work here, stop and fix the base ReShade installation before continuing.
 
@@ -100,7 +100,7 @@ Do **not** use the older experimental SunriseNRB launchers.
 
 When everything is working:
 
-- **Home** → ReShade
+- **Ctrl + Shift + O** → ReShade
 - **Insert** → Project Sunrise UI
 - DLSS Neural Rendering should be available through the bridge
 
@@ -108,7 +108,7 @@ The V7 launcher injects one small bridge DLL. That bridge waits until Project Su
 
 ## Controls
 
-- **Home** → ReShade
+- **Ctrl + Shift + O** → ReShade
 - **Insert** → Project Sunrise UI
 
 The separate D3D12 host window is expected and should remain open while using the bridge.
