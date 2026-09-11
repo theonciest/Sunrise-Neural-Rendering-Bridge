@@ -24,20 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Skip if release already exists
-        id: release_state
-        shell: pwsh
-        run: |
-          gh release view v0.1.1-alpha *> $null
-          if ($LASTEXITCODE -eq 0) {
-            "exists=true" >> $env:GITHUB_OUTPUT
-            Write-Host "v0.1.1-alpha already exists; build/release upload will be skipped."
-          } else {
-            "exists=false" >> $env:GITHUB_OUTPUT
-          }
-
       - name: Resolve Visual Studio
-        if: steps.release_state.outputs.exists != 'true'
         id: vs
         shell: pwsh
         run: |
@@ -49,7 +36,6 @@ jobs:
           Write-Host $vs
 
       - name: Build Microsoft Detours 4.0.1
-        if: steps.release_state.outputs.exists != 'true'
         shell: pwsh
         run: |
           git clone --branch v4.0.1 --single-branch --depth 1 https://github.com/microsoft/Detours.git "$env:RUNNER_TEMP\detours"
@@ -69,7 +55,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Detours build failed: $LASTEXITCODE" }
 
       - name: Build Sunrise V7 bridge and launcher
-        if: steps.release_state.outputs.exists != 'true'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\sunrise-v7" | Out-Null
@@ -90,7 +75,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "V7 build failed: $LASTEXITCODE" }
 
       - name: Build patched ReShade 6.8.0
-        if: steps.release_state.outputs.exists != 'true'
         shell: pwsh
         run: |
           git clone --branch v6.8.0 --depth 1 --recurse-submodules --shallow-submodules https://github.com/crosire/reshade.git "$env:RUNNER_TEMP\reshade"
@@ -115,7 +99,6 @@ jobs:
           if (-not (Test-Path $dll)) { throw "Patched ReShade64.dll missing." }
 
       - name: Download previous full alpha package
-        if: steps.release_state.outputs.exists != 'true'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\previous" | Out-Null
@@ -123,7 +106,6 @@ jobs:
           Expand-Archive "$env:RUNNER_TEMP\previous\Sunrise-Neural-Rendering-Bridge-v0.1.0-alpha.zip" "$env:RUNNER_TEMP\package-stage" -Force
 
       - name: Merge coexistence fix into full package
-        if: steps.release_state.outputs.exists != 'true'
         shell: pwsh
         run: |
           $stage = "$env:RUNNER_TEMP\package-stage"
@@ -177,7 +159,6 @@ jobs:
           "$hash  Sunrise-Neural-Rendering-Bridge-v0.1.1-alpha.zip" | Set-Content "$out.sha256" -Encoding Ascii
 
       - name: Create v0.1.1-alpha release
-        if: steps.release_state.outputs.exists != 'true'
         shell: pwsh
         run: |
           gh release create v0.1.1-alpha `
