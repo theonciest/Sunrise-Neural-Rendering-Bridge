@@ -1,0 +1,3 @@
+LIBRARY SunriseNRB
+EXPORTS
+    DetourFinishHelperProcess @1

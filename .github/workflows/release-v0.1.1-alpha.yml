@@ -1,0 +1,191 @@
+name: release-v0.1.1-alpha
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sunrise/v7/**'
+      - 'RELEASE-NOTES-v0.1.1-alpha.md'
+      - 'THIRD-PARTY-NOTICES.md'
+      - 'third-party/licenses/**'
+      - '.github/workflows/release-v0.1.1-alpha.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-2022
+    timeout-minutes: 50
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Skip if release already exists
+        id: release_state
+        shell: pwsh
+        run: |
+          gh release view v0.1.1-alpha *> $null
+          if ($LASTEXITCODE -eq 0) {
+            "exists=true" >> $env:GITHUB_OUTPUT
+            Write-Host "v0.1.1-alpha already exists; build/release upload will be skipped."
+          } else {
+            "exists=false" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Resolve Visual Studio
+        if: steps.release_state.outputs.exists != 'true'
+        id: vs
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw "Visual Studio C++ tools not found." }
+          $vs = $vs.Trim()
+          "path=$vs" >> $env:GITHUB_OUTPUT
+          Write-Host $vs
+
+      - name: Build Microsoft Detours 4.0.1
+        if: steps.release_state.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          git clone --branch v4.0.1 --single-branch --depth 1 https://github.com/microsoft/Detours.git "$env:RUNNER_TEMP\detours"
+          $head = (git -C "$env:RUNNER_TEMP\detours" rev-parse HEAD).Trim()
+          if ($head -ne 'e4bfd6b03e50de46b47abfbd1e46b384f0c5f833') { throw "Unexpected Detours commit: $head" }
+
+          $cmd = @"
+          @echo off
+          call "${{ steps.vs.outputs.path }}\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
+          if errorlevel 1 exit /b %errorlevel%
+          cd /d "$env:RUNNER_TEMP\detours\src"
+          nmake
+          exit /b %errorlevel%
+          "@
+          Set-Content "$env:RUNNER_TEMP\build-detours.cmd" $cmd -Encoding Ascii
+          & cmd /d /c "`"$env:RUNNER_TEMP\build-detours.cmd`""
+          if ($LASTEXITCODE -ne 0) { throw "Detours build failed: $LASTEXITCODE" }
+
+      - name: Build Sunrise V7 bridge and launcher
+        if: steps.release_state.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\sunrise-v7" | Out-Null
+
+          $cmd = @"
+          @echo off
+          call "${{ steps.vs.outputs.path }}\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
+          if errorlevel 1 exit /b %errorlevel%
+          cl /nologo /LD /O2 /MT /std:c++17 /EHsc "$env:GITHUB_WORKSPACE\sunrise\v7\SunriseNRB-ProvenWorkerV7.cpp" kernel32.lib /link /DEF:"$env:GITHUB_WORKSPACE\sunrise\v7\SunriseNRB-ProvenWorkerV7.def" /OUT:"$env:RUNNER_TEMP\sunrise-v7\SunriseNRB.dll"
+          if errorlevel 1 exit /b %errorlevel%
+          dumpbin /nologo /exports "$env:RUNNER_TEMP\sunrise-v7\SunriseNRB.dll" | findstr /R /C:"[ ]1[ ]"
+          if errorlevel 1 exit /b 93
+          cl /nologo /O2 /MT /std:c++17 /EHsc /I"$env:RUNNER_TEMP\detours\include" "$env:GITHUB_WORKSPACE\sunrise\v7\SunriseNRB-Launcher-V7.cpp" "$env:RUNNER_TEMP\detours\lib.X64\detours.lib" /link /SUBSYSTEM:CONSOLE /OUT:"$env:RUNNER_TEMP\sunrise-v7\SunriseNRB-Launcher.exe"
+          exit /b %errorlevel%
+          "@
+          Set-Content "$env:RUNNER_TEMP\build-v7.cmd" $cmd -Encoding Ascii
+          & cmd /d /c "`"$env:RUNNER_TEMP\build-v7.cmd`""
+          if ($LASTEXITCODE -ne 0) { throw "V7 build failed: $LASTEXITCODE" }
+
+      - name: Build patched ReShade 6.8.0
+        if: steps.release_state.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          git clone --branch v6.8.0 --depth 1 --recurse-submodules --shallow-submodules https://github.com/crosire/reshade.git "$env:RUNNER_TEMP\reshade"
+          $head = (git -C "$env:RUNNER_TEMP\reshade" rev-parse HEAD).Trim()
+          if ($head -ne '18deaa52de0c425a78b329e9cb3c497281cd00ec') { throw "Unexpected ReShade commit: $head" }
+
+          & "$env:GITHUB_WORKSPACE\sunrise\v7\Apply-ReShade-ProbeCompat.ps1" -ReShadeRoot "$env:RUNNER_TEMP\reshade"
+
+          $cmd = @"
+          @echo off
+          call "${{ steps.vs.outputs.path }}\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
+          if errorlevel 1 exit /b %errorlevel%
+          set "SolutionDir=$env:RUNNER_TEMP\reshade\"
+          msbuild "$env:RUNNER_TEMP\reshade\ReShade.vcxproj" /m /t:Rebuild /p:Configuration=Release /p:Platform=x64 /verbosity:minimal /nologo
+          exit /b %errorlevel%
+          "@
+          Set-Content "$env:RUNNER_TEMP\build-reshade.cmd" $cmd -Encoding Ascii
+          & cmd /d /c "`"$env:RUNNER_TEMP\build-reshade.cmd`""
+          if ($LASTEXITCODE -ne 0) { throw "ReShade build failed: $LASTEXITCODE" }
+
+          $dll = "$env:RUNNER_TEMP\reshade\bin\x64\Release\ReShade64.dll"
+          if (-not (Test-Path $dll)) { throw "Patched ReShade64.dll missing." }
+
+      - name: Download previous full alpha package
+        if: steps.release_state.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\previous" | Out-Null
+          gh release download v0.1.0-alpha --pattern 'Sunrise-Neural-Rendering-Bridge-v0.1.0-alpha.zip' --dir "$env:RUNNER_TEMP\previous"
+          Expand-Archive "$env:RUNNER_TEMP\previous\Sunrise-Neural-Rendering-Bridge-v0.1.0-alpha.zip" "$env:RUNNER_TEMP\package-stage" -Force
+
+      - name: Merge coexistence fix into full package
+        if: steps.release_state.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          $stage = "$env:RUNNER_TEMP\package-stage"
+          $children = @(Get-ChildItem -LiteralPath $stage)
+          if ($children.Count -eq 1 -and $children[0].PSIsContainer) {
+            $root = $children[0].FullName
+          } else {
+            $root = $stage
+          }
+
+          New-Item -ItemType Directory -Force (Join-Path $root 'SunriseNRB') | Out-Null
+          New-Item -ItemType Directory -Force (Join-Path $root 'third-party\licenses') | Out-Null
+          New-Item -ItemType Directory -Force (Join-Path $root 'source\sunrise-v7') | Out-Null
+
+          Copy-Item "$env:RUNNER_TEMP\sunrise-v7\SunriseNRB.dll" (Join-Path $root 'SunriseNRB\SunriseNRB.dll') -Force
+          Copy-Item "$env:RUNNER_TEMP\sunrise-v7\SunriseNRB-Launcher.exe" (Join-Path $root 'SunriseNRB\SunriseNRB-Launcher.exe') -Force
+          Copy-Item "$env:RUNNER_TEMP\reshade\bin\x64\Release\ReShade64.dll" (Join-Path $root 'ReShade64.dll') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\sunrise\v7\SUNRISE-NRB.bat" (Join-Path $root 'SUNRISE-NRB.bat') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\sunrise\v7\VALIDATION.md" (Join-Path $root 'PASS1-V7-VALIDATION.md') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\sunrise\v7\SunriseNRB-ProvenWorkerV7.cpp" (Join-Path $root 'source\sunrise-v7\SunriseNRB-ProvenWorkerV7.cpp') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\sunrise\v7\SunriseNRB-ProvenWorkerV7.def" (Join-Path $root 'source\sunrise-v7\SunriseNRB-ProvenWorkerV7.def') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\sunrise\v7\SunriseNRB-Launcher-V7.cpp" (Join-Path $root 'source\sunrise-v7\SunriseNRB-Launcher-V7.cpp') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\sunrise\v7\Apply-ReShade-ProbeCompat.ps1" (Join-Path $root 'source\sunrise-v7\Apply-ReShade-ProbeCompat.ps1') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\third-party\licenses\ReShade-6.8.0-LICENSE.md" (Join-Path $root 'third-party\licenses\ReShade-6.8.0-LICENSE.md') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\third-party\licenses\Microsoft-Detours-4.0.1-LICENSE.md" (Join-Path $root 'third-party\licenses\Microsoft-Detours-4.0.1-LICENSE.md') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\THIRD-PARTY-NOTICES.md" (Join-Path $root 'THIRD-PARTY-NOTICES.md') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\README.md" (Join-Path $root 'README.md') -Force
+
+          $forbidden = @('steam_api64.dll','destiny2.exe','nvngx_dlss.dll','nvngx_dlssnr.dll')
+          foreach ($name in $forbidden) {
+            Get-ChildItem -LiteralPath $root -Recurse -File -Filter $name -ErrorAction SilentlyContinue | Remove-Item -Force
+          }
+          foreach ($name in $forbidden) {
+            if (Get-ChildItem -LiteralPath $root -Recurse -File -Filter $name -ErrorAction SilentlyContinue) {
+              throw "Forbidden release file survived sanitization: $name"
+            }
+          }
+
+          $manifest = @()
+          foreach ($rel in @('SunriseNRB\SunriseNRB.dll','SunriseNRB\SunriseNRB-Launcher.exe','ReShade64.dll')) {
+            $p = Join-Path $root $rel
+            $manifest += "{0}  {1}" -f (Get-FileHash $p -Algorithm SHA256).Hash, $rel
+          }
+          $manifest += ''
+          $manifest += 'Locally validated authority hashes are documented in PASS1-V7-VALIDATION.md.'
+          $manifest | Set-Content (Join-Path $root 'PASS1-V7-MANIFEST.txt') -Encoding UTF8
+
+          $out = "$env:GITHUB_WORKSPACE\Sunrise-Neural-Rendering-Bridge-v0.1.1-alpha.zip"
+          Compress-Archive -Path (Join-Path $root '*') -DestinationPath $out -CompressionLevel Optimal -Force
+          $hash = (Get-FileHash $out -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  Sunrise-Neural-Rendering-Bridge-v0.1.1-alpha.zip" | Set-Content "$out.sha256" -Encoding Ascii
+
+      - name: Create v0.1.1-alpha release
+        if: steps.release_state.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          gh release create v0.1.1-alpha `
+            "Sunrise-Neural-Rendering-Bridge-v0.1.1-alpha.zip" `
+            "Sunrise-Neural-Rendering-Bridge-v0.1.1-alpha.zip.sha256" `
+            --target "${{ github.sha }}" `
+            --title "Sunrise Neural Rendering Bridge v0.1.1-alpha" `
+            --notes-file "RELEASE-NOTES-v0.1.1-alpha.md" `
+            --prerelease
+
+          gh release view v0.1.1-alpha

@@ -2,12 +2,28 @@
 
 **DLSS Neural Rendering for Project Sunrise via a D3D11 → D3D12 external host.**
 
+## Validated coexistence architecture
+
+As of **v0.1.1-alpha**, the tested Project Sunrise path keeps all three components alive at the same time:
+
+- Project Sunrise / `steam_api64.dll`
+- ReShade 6.8.0 + DLSS5 feeder
+- Sunrise NRB Detours bridge
+
+The compatibility fix is intentionally narrow: ReShade continues to proxy the real Destiny swap chain, but leaves Project Sunrise's exact hidden **64×64 DXGI discovery probe** unproxied so Sunrise can resolve the real system `dxgi.dll` vtable.
+
+On the validated RTX 3080 Ti configuration:
+
+- **Home** opens ReShade.
+- **Insert** opens the Project Sunrise UI.
+- DLSS Neural Rendering remains active.
+- Project Sunrise's protected `steam_api64.dll` remains byte-for-byte unchanged.
+
 ## Requirements
 
 - A working Project Sunrise install
 - NVIDIA RTX GPU
 - Current NVIDIA graphics driver
-- **ReShade 6.8.0 Add-on Support**
 - `nvngx_dlss.dll`
 - `nvngx_dlssnr.dll`
 
@@ -15,63 +31,25 @@
 
 ## Install
 
-### 1. Install ReShade first
+1. Download the latest release and extract its **contents** into the Project Sunrise root, next to `destiny2.exe`.
+2. Put your own legitimate NVIDIA runtime files in `USER-RUNTIME\NVIDIA\`:
+   - `nvngx_dlss.dll`
+   - `nvngx_dlssnr.dll`
+3. Run the included NVIDIA runtime bootstrapper if the release provides it.
+4. Launch with:
 
-Download **ReShade 6.8.0 with Add-on Support** from the official ReShade site.
+   `SUNRISE-NRB.bat`
 
-Run the installer and point it at your Project Sunrise `destiny2.exe`.
+Do **not** replace Project Sunrise's `bin\x64\steam_api64.dll`.
 
-Choose:
+The V7 launcher injects one small bridge DLL. That bridge waits until Project Sunrise's Steam module exists, then immediately loads the patched ReShade build. There is no post-module timing sweep and no remote ReShade injection.
 
-**DirectX 10 / 11 / 12**
-
-Launch Project Sunrise once after installing ReShade. Press **Home** and confirm the ReShade overlay opens.
-
-**If ReShade does not load, stop here and fix that first. The bridge will not work until the game-side ReShade installation is working.**
-
-### 2. Install the bridge
-
-Download the latest Sunrise Neural Rendering Bridge release and extract it.
-
-Copy the **contents** of the extracted folder into your Project Sunrise root — the same folder that contains `destiny2.exe`.
-
-### 3. Supply the NVIDIA runtime
-
-Put both of these files in:
-
-`USER-RUNTIME\NVIDIA\`
-
-- `nvngx_dlss.dll`
-- `nvngx_dlssnr.dll`
-
-For `nvngx_dlssnr.dll`:
-
-- **RTX 50 series:** use the normal NVIDIA-signed DLSS-NR 310.8 runtime from the current RenoDX DLSS5 / DLSS Tool (ShortFuse Version) downloads.
-- **RTX 20 / 30 / 40 series:** use ShortFuse's cross-generation patched DLSS-NR 310.8 runtime from the RenoDX DLSS5 forum/downloads.
-
-The Runtime Bootstrapper validates the supplied runtime by SHA-256 and stops instead of guessing if the DLSS-NR file is not one of the validated builds.
-
-### 4. Run the Runtime Bootstrapper
-
-Double-click:
-
-`BOOTSTRAP-NVIDIA-RUNTIME.bat`
-
-The bootstrapper validates the NVIDIA files and installs them into the bridge runtime locations.
-
-When rerun, the bootstrapper should offer install/repair, remove, or exit. Removal must only remove files that match known installed runtime hashes and must leave unknown/user-modified files alone.
-
-### 5. Launch Project Sunrise
-
-Launch Project Sunrise normally.
+## Controls
 
 - **Home** → ReShade
 - **Insert** → Project Sunrise UI
-- The separate D3D12 host window is expected and should remain open while using the bridge.
 
-**Tested on GeForce RTX 3080 Ti 12 GB.**
-
----
+The separate D3D12 host window is expected and should remain open while using the bridge.
 
 ## Status
 
@@ -80,87 +58,85 @@ Launch Project Sunrise normally.
 | D3D11 → D3D12 bridge | ✅ Working |
 | Color / depth / motion transport | ✅ Working |
 | DLSS Neural Rendering | ✅ Working |
-| Neural Rendering Work Scale | ✅ Working |
+| ReShade / Sunrise coexistence | ✅ Working |
+| Project Sunrise Insert UI | ✅ Working |
+| Neural Rendering Work Scale | ✅ 50–100%; below 50% is the next validation target |
 | FSR3 Frame Generation | 🧪 Experimental |
 
-## Why is there a second window?
+## Pass-1 validation authority
 
-The second window is the external D3D12 neural-rendering host. It is expected and should remain open while using the bridge.
+The September 11, 2026 validation run observed the complete live module chain and left Destiny running:
 
 ```text
-Project Sunrise / Destiny 2
-           │
-           │ D3D11 color + depth + motion
-           ▼
-   Game-side bridge / feeder
-           │
-           │ shared GPU resources + IPC
-           ▼
-     External D3D12 Host
-           │
-           ├── NVIDIA DLSS Neural Rendering
-           └── Experimental FidelityFX FG backend
+MODULE SunriseNRB.dll observed
+MODULE steam_api64.dll observed
+MODULE ReShade64.dll observed
+PASS module chain alive: bridge + Sunrise + patched ReShade
+launcher handoff complete; processExit=0x00000103 bridge=1 steam=1 reshade=1
 ```
 
----
+Local tested hashes:
+
+```text
+Protected Project Sunrise steam_api64.dll
+EEF191955C803D7A4B0BDC079ABEC519CD2BFD0C3909C7C19B6B7BAA078553DB
+
+Patched ReShade64.dll
+9E85F8644830338F48EF6F4DB4E0BAE66F0B3FAF9BE2189CEF26F3B65B4A8E18
+
+V7 bridge
+0977BCD616771A71D9E3CB78C510C1D3A03AF5265A4E465AB61B64CFDA88920F
+
+V7 launcher
+43EC5E9EF325B4EDEE7B7F44176C9DB6CD73A05F6E2B01A38D6D9B2B63CB5714
+
+DLSS5 feed
+CCC162E899B132BCDA3F80C5AE3309F0EE0FAB6254B98D0C5DA2F986AF52EE93
+```
+
+CI-built portable binaries may have different hashes because of toolchain/build metadata; the source architecture and ReShade compatibility rule are locked under `sunrise/v7/`.
 
 ## How it works
 
-Sunrise Neural Rendering Bridge captures color, depth, motion, and rendering metadata from Project Sunrise / Destiny 2's D3D11 renderer and transports them through shared GPU resources / IPC to a dedicated D3D12 host.
-
-This repository is a Project Sunrise-focused fork of **DLSS5-Feeder by Jean-Laurent ROUZIES**. The upstream project established the core feeder-to-external-host architecture. This fork adds Sunrise integration, diagnostics, the external D3D12 neural-rendering host, Neural Rendering Work Scale controls, packaging, and experimental FidelityFX frame-generation integration.
-
-The bridge does not contain NVIDIA's proprietary neural-rendering runtime. Users supply the required NVIDIA runtime files separately.
-
----
-
-## Experimental
-
-FSR3 Frame Generation remains experimental.
-
-The current code contains the frame-generation dispatch path and generated-frame resources, but this project does **not currently advertise visible FPS doubling**. Generated-frame presentation/interleaving remains a separate validation target.
-
----
-
-## Logs / Support
-
-The main user-facing diagnostic log is:
-
 ```text
-host64\logs\status.log
+SUNRISE-NRB.bat
+      │
+      ▼
+Detours V7 launcher
+      │ injects one bridge DLL
+      ▼
+destiny2.exe
+      │
+      ├── Project Sunrise steam_api64.dll
+      │
+      └── SunriseNRB.dll worker
+                │ waits for steam_api64.dll
+                │ zero post-module delay
+                ▼
+         patched ReShade 6.8.0
+                │
+                ├── real Destiny swap chain → normal ReShade proxy
+                └── exact Sunrise 64×64 probe → raw system DXGI object
 ```
 
-When reporting an issue, include the status log, GPU model, driver version, and versions/hashes of the user-supplied NVIDIA runtime files.
+The feeder transports D3D11 color, depth, motion, and rendering metadata through shared GPU resources / IPC to the external D3D12 host.
 
----
+## NVIDIA runtime
 
-## Building From Source
+NVIDIA proprietary runtime binaries are **not** shipped by this repository. Users supply legitimate copies separately.
 
-```text
-build.bat
-host\build-host-fsr3.bat
-```
+## Source / upstream
 
-Normal users should use the packaged release rather than building manually.
+This repository is a Project Sunrise-focused fork of **DLSS5-Feeder by Jean-Laurent ROUZIES**.
 
----
+- Upstream feeder: `jlrouzies-fr/DLSS5-Feeder`
+- ReShade: `crosire/reshade`
+- Microsoft Detours: `microsoft/Detours`
 
-## Credits
+See `THIRD-PARTY-NOTICES.md` and `third-party/licenses/`.
 
-This project is based on **DLSS5-Feeder by Jean-Laurent ROUZIES**. The upstream feeder/external-host architecture is the technical foundation of this fork. The original MIT copyright and permission notice are preserved in `LICENSE`.
+## Legal / independence notice
 
-Upstream project: `jlrouzies-fr/DLSS5-Feeder`
+Sunrise Neural Rendering Bridge is an independent interoperability project. It is not affiliated with, sponsored by, approved by, or endorsed by NVIDIA, AMD, Bungie, ReShade, RenoDX, Microsoft, or Project Sunrise unless explicitly stated by the relevant rights holder.
 
-This project also interoperates with technology and/or software from NVIDIA, AMD, ReShade, RenoDX, Project Sunrise, and other upstream projects. See `THIRD-PARTY-NOTICES.md` for applicable notices and licenses.
-
----
-
-## Legal / Independence Notice
-
-Sunrise Neural Rendering Bridge is an independent interoperability project. It is not affiliated with, sponsored by, approved by, or endorsed by NVIDIA, AMD, Bungie, ReShade, RenoDX, or Project Sunrise unless explicitly stated by the relevant rights holder.
-
-Names such as NVIDIA, DLSS, NGX, AMD, FidelityFX, FSR, Bungie, Destiny, ReShade, RenoDX, and Project Sunrise are used solely to identify compatibility, interoperability, or upstream technology. All trademarks and copyrights remain the property of their respective owners.
-
-This repository does not grant rights to Destiny / Destiny 2 game content, Project Sunrise files, NVIDIA runtime binaries, or other third-party proprietary materials. No Bungie game assets, Project Sunrise binaries, or NVIDIA proprietary runtime binaries are included in the public bridge release.
-
-See `LICENSE` and `THIRD-PARTY-NOTICES.md` for the applicable notices.
+No Destiny executable, Bungie game assets, Project Sunrise binaries, or NVIDIA proprietary runtime binaries are included in the public release.
