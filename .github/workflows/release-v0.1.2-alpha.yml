@@ -1,0 +1,213 @@
+name: release-v0.1.2-alpha
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'reshade-shaders/Shaders/KageBlink - SideBySide.fx'
+      - 'reshade-shaders/Shaders/KageBlink - HDR LOG Sliders.fx'
+      - 'CONFIGURE-STAR-LIFTER.ps1'
+      - 'CONFIGURE-STAR-LIFTER.bat'
+      - 'RELEASE-NOTES-v0.1.2-alpha.md'
+      - '.github/workflows/release-v0.1.2-alpha.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-2022
+    timeout-minutes: 55
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve Visual Studio
+        id: vs
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw "Visual Studio C++ tools not found." }
+          $vs = $vs.Trim()
+          "path=$vs" >> $env:GITHUB_OUTPUT
+          Write-Host $vs
+
+      - name: Build Microsoft Detours 4.0.1
+        shell: pwsh
+        run: |
+          git clone --branch v4.0.1 --single-branch --depth 1 https://github.com/microsoft/Detours.git "$env:RUNNER_TEMP\detours"
+          $head = (git -C "$env:RUNNER_TEMP\detours" rev-parse HEAD).Trim()
+          if ($head -ne 'e4bfd6b03e50de46b47abfbd1e46b384f0c5f833') { throw "Unexpected Detours commit: $head" }
+
+          $cmd = @"
+          @echo off
+          call "${{ steps.vs.outputs.path }}\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
+          if errorlevel 1 exit /b %errorlevel%
+          cd /d "$env:RUNNER_TEMP\detours\src"
+          nmake
+          exit /b %errorlevel%
+          "@
+          Set-Content "$env:RUNNER_TEMP\build-detours.cmd" $cmd -Encoding Ascii
+          & cmd /d /c "`"$env:RUNNER_TEMP\build-detours.cmd`""
+          if ($LASTEXITCODE -ne 0) { throw "Detours build failed: $LASTEXITCODE" }
+
+      - name: Build locked V7 bridge and launcher
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\sunrise-v7" | Out-Null
+          $cmd = @"
+          @echo off
+          call "${{ steps.vs.outputs.path }}\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
+          if errorlevel 1 exit /b %errorlevel%
+          cl /nologo /LD /O2 /MT /std:c++17 /EHsc "$env:GITHUB_WORKSPACE\sunrise\v7\SunriseNRB-ProvenWorkerV7.cpp" kernel32.lib /link /DEF:"$env:GITHUB_WORKSPACE\sunrise\v7\SunriseNRB-ProvenWorkerV7.def" /OUT:"$env:RUNNER_TEMP\sunrise-v7\SunriseNRB.dll"
+          if errorlevel 1 exit /b %errorlevel%
+          dumpbin /nologo /exports "$env:RUNNER_TEMP\sunrise-v7\SunriseNRB.dll" | findstr /R /C:"[ ]1[ ]"
+          if errorlevel 1 exit /b 93
+          cl /nologo /O2 /MT /std:c++17 /EHsc /I"$env:RUNNER_TEMP\detours\include" "$env:GITHUB_WORKSPACE\sunrise\v7\SunriseNRB-Launcher-V7.cpp" "$env:RUNNER_TEMP\detours\lib.X64\detours.lib" /link /SUBSYSTEM:CONSOLE /OUT:"$env:RUNNER_TEMP\sunrise-v7\SunriseNRB-Launcher.exe"
+          exit /b %errorlevel%
+          "@
+          Set-Content "$env:RUNNER_TEMP\build-v7.cmd" $cmd -Encoding Ascii
+          & cmd /d /c "`"$env:RUNNER_TEMP\build-v7.cmd`""
+          if ($LASTEXITCODE -ne 0) { throw "V7 build failed: $LASTEXITCODE" }
+
+      - name: Build patched ReShade 6.8.0 and ReShadeFXC
+        shell: pwsh
+        run: |
+          git clone --branch v6.8.0 --depth 1 --recurse-submodules --shallow-submodules https://github.com/crosire/reshade.git "$env:RUNNER_TEMP\reshade"
+          $head = (git -C "$env:RUNNER_TEMP\reshade" rev-parse HEAD).Trim()
+          if ($head -ne '18deaa52de0c425a78b329e9cb3c497281cd00ec') { throw "Unexpected ReShade commit: $head" }
+
+          & "$env:GITHUB_WORKSPACE\sunrise\v7\Apply-ReShade-ProbeCompat.ps1" -ReShadeRoot "$env:RUNNER_TEMP\reshade"
+
+          $cmd = @"
+          @echo off
+          call "${{ steps.vs.outputs.path }}\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
+          if errorlevel 1 exit /b %errorlevel%
+          set "SolutionDir=$env:RUNNER_TEMP\reshade\"
+          msbuild "$env:RUNNER_TEMP\reshade\ReShade.vcxproj" /m /t:Rebuild /p:Configuration=Release /p:Platform=x64 /verbosity:minimal /nologo
+          if errorlevel 1 exit /b %errorlevel%
+          msbuild "$env:RUNNER_TEMP\reshade\ReShadeFXC.vcxproj" /m /t:Rebuild /p:Configuration=Release /p:Platform=x64 /verbosity:minimal /nologo
+          exit /b %errorlevel%
+          "@
+          Set-Content "$env:RUNNER_TEMP\build-reshade.cmd" $cmd -Encoding Ascii
+          & cmd /d /c "`"$env:RUNNER_TEMP\build-reshade.cmd`""
+          if ($LASTEXITCODE -ne 0) { throw "ReShade/ReShadeFXC build failed: $LASTEXITCODE" }
+
+          $dll = "$env:RUNNER_TEMP\reshade\bin\x64\Release\ReShade64.dll"
+          if (-not (Test-Path $dll)) { throw "Patched ReShade64.dll missing." }
+
+          $fxc = Get-ChildItem -LiteralPath "$env:RUNNER_TEMP\reshade" -Recurse -File -Filter ReShadeFXC.exe | Select-Object -First 1
+          if (-not $fxc) { throw "ReShadeFXC.exe missing after build." }
+          "RESHADFXC=$($fxc.FullName)" >> $env:GITHUB_ENV
+
+      - name: Download v0.1.1 full package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\previous" | Out-Null
+          gh release download v0.1.1-alpha --pattern 'Sunrise-Neural-Rendering-Bridge-v0.1.1-alpha.zip' --dir "$env:RUNNER_TEMP\previous"
+          Expand-Archive "$env:RUNNER_TEMP\previous\Sunrise-Neural-Rendering-Bridge-v0.1.1-alpha.zip" "$env:RUNNER_TEMP\package-stage" -Force
+
+      - name: Merge Star Lifter comparison/input polish
+        shell: pwsh
+        run: |
+          $stage = "$env:RUNNER_TEMP\package-stage"
+          $children = @(Get-ChildItem -LiteralPath $stage)
+          if ($children.Count -eq 1 -and $children[0].PSIsContainer) { $root = $children[0].FullName } else { $root = $stage }
+
+          New-Item -ItemType Directory -Force (Join-Path $root 'SunriseNRB') | Out-Null
+          New-Item -ItemType Directory -Force (Join-Path $root 'reshade-shaders\Shaders') | Out-Null
+          New-Item -ItemType Directory -Force (Join-Path $root 'third-party\licenses') | Out-Null
+          New-Item -ItemType Directory -Force (Join-Path $root 'source\sunrise-v7') | Out-Null
+
+          # Retain the validated V7 coexistence path and refresh the patched ReShade build.
+          Copy-Item "$env:RUNNER_TEMP\sunrise-v7\SunriseNRB.dll" (Join-Path $root 'SunriseNRB\SunriseNRB.dll') -Force
+          Copy-Item "$env:RUNNER_TEMP\sunrise-v7\SunriseNRB-Launcher.exe" (Join-Path $root 'SunriseNRB\SunriseNRB-Launcher.exe') -Force
+          Copy-Item "$env:RUNNER_TEMP\reshade\bin\x64\Release\ReShade64.dll" (Join-Path $root 'ReShade64.dll') -Force
+
+          # New Star Lifter interaction/comparison bundle.
+          Copy-Item "$env:GITHUB_WORKSPACE\reshade-shaders\Shaders\KageBlink - SideBySide.fx" (Join-Path $root 'reshade-shaders\Shaders\KageBlink - SideBySide.fx') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\reshade-shaders\Shaders\KageBlink - HDR LOG Sliders.fx" (Join-Path $root 'reshade-shaders\Shaders\KageBlink - HDR LOG Sliders.fx') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\CONFIGURE-STAR-LIFTER.ps1" (Join-Path $root 'CONFIGURE-STAR-LIFTER.ps1') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\CONFIGURE-STAR-LIFTER.bat" (Join-Path $root 'CONFIGURE-STAR-LIFTER.bat') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\README.md" (Join-Path $root 'README.md') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\RELEASE-NOTES-v0.1.2-alpha.md" (Join-Path $root 'RELEASE-NOTES-v0.1.2-alpha.md') -Force
+
+          # Keep source/license material synchronized too.
+          Copy-Item "$env:GITHUB_WORKSPACE\sunrise\v7\SUNRISE-NRB.bat" (Join-Path $root 'SUNRISE-NRB.bat') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\sunrise\v7\VALIDATION.md" (Join-Path $root 'PASS1-V7-VALIDATION.md') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\sunrise\v7\SunriseNRB-ProvenWorkerV7.cpp" (Join-Path $root 'source\sunrise-v7\SunriseNRB-ProvenWorkerV7.cpp') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\sunrise\v7\SunriseNRB-ProvenWorkerV7.def" (Join-Path $root 'source\sunrise-v7\SunriseNRB-ProvenWorkerV7.def') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\sunrise\v7\SunriseNRB-Launcher-V7.cpp" (Join-Path $root 'source\sunrise-v7\SunriseNRB-Launcher-V7.cpp') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\sunrise\v7\Apply-ReShade-ProbeCompat.ps1" (Join-Path $root 'source\sunrise-v7\Apply-ReShade-ProbeCompat.ps1') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\third-party\licenses\ReShade-6.8.0-LICENSE.md" (Join-Path $root 'third-party\licenses\ReShade-6.8.0-LICENSE.md') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\third-party\licenses\Microsoft-Detours-4.0.1-LICENSE.md" (Join-Path $root 'third-party\licenses\Microsoft-Detours-4.0.1-LICENSE.md') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\THIRD-PARTY-NOTICES.md" (Join-Path $root 'THIRD-PARTY-NOTICES.md') -Force
+
+          "PACKAGE_ROOT=$root" >> $env:GITHUB_ENV
+
+      - name: Compile bundled ReShade FX shaders
+        shell: pwsh
+        run: |
+          $shaderDir = Join-Path $env:PACKAGE_ROOT 'reshade-shaders\Shaders'
+          $outDir = Join-Path $env:RUNNER_TEMP 'fx-validation'
+          New-Item -ItemType Directory -Force $outDir | Out-Null
+
+          & $env:RESHADFXC -I $shaderDir --width 3440 --height 1440 -Fo (Join-Path $outDir 'SideBySide.hlsl') (Join-Path $shaderDir 'KageBlink - SideBySide.fx')
+          if ($LASTEXITCODE -ne 0) { throw "SideBySide shader validation failed: $LASTEXITCODE" }
+
+          & $env:RESHADFXC -I $shaderDir --width 3440 --height 1440 -Fo (Join-Path $outDir 'HDRLogSliders.hlsl') (Join-Path $shaderDir 'KageBlink - HDR LOG Sliders.fx')
+          if ($LASTEXITCODE -ne 0) { throw "HDR LOG Sliders shader validation failed: $LASTEXITCODE" }
+
+          Write-Host '[PASS] Both bundled Star Lifter ReShade FX shaders compile with ReShadeFXC.'
+
+      - name: Sanitize and package
+        shell: pwsh
+        run: |
+          $root = $env:PACKAGE_ROOT
+          $forbidden = @('steam_api64.dll','destiny2.exe','nvngx_dlss.dll','nvngx_dlssnr.dll')
+          foreach ($name in $forbidden) {
+            Get-ChildItem -LiteralPath $root -Recurse -File -Filter $name -ErrorAction SilentlyContinue | Remove-Item -Force
+          }
+          foreach ($name in $forbidden) {
+            if (Get-ChildItem -LiteralPath $root -Recurse -File -Filter $name -ErrorAction SilentlyContinue) {
+              throw "Forbidden release file survived sanitization: $name"
+            }
+          }
+
+          $manifest = @()
+          foreach ($rel in @(
+            'SunriseNRB\SunriseNRB.dll',
+            'SunriseNRB\SunriseNRB-Launcher.exe',
+            'ReShade64.dll',
+            'reshade-shaders\Shaders\KageBlink - SideBySide.fx',
+            'reshade-shaders\Shaders\KageBlink - HDR LOG Sliders.fx',
+            'CONFIGURE-STAR-LIFTER.ps1'
+          )) {
+            $p = Join-Path $root $rel
+            $manifest += "{0}  {1}" -f (Get-FileHash $p -Algorithm SHA256).Hash, $rel
+          }
+          $manifest += ''
+          $manifest += 'Locally validated V7 authority hashes are documented in PASS1-V7-VALIDATION.md.'
+          $manifest | Set-Content (Join-Path $root 'STAR-LIFTER-v0.1.2-MANIFEST.txt') -Encoding UTF8
+
+          $out = "$env:GITHUB_WORKSPACE\STAR-LIFTER-v0.1.2-alpha.zip"
+          Compress-Archive -Path (Join-Path $root '*') -DestinationPath $out -CompressionLevel Optimal -Force
+          $hash = (Get-FileHash $out -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  STAR-LIFTER-v0.1.2-alpha.zip" | Set-Content "$out.sha256" -Encoding Ascii
+
+      - name: Create v0.1.2-alpha release
+        shell: pwsh
+        run: |
+          gh release create v0.1.2-alpha `
+            "STAR-LIFTER-v0.1.2-alpha.zip" `
+            "STAR-LIFTER-v0.1.2-alpha.zip.sha256" `
+            --target "${{ github.sha }}" `
+            --title "STAR LIFTER v0.1.2-alpha" `
+            --notes-file "RELEASE-NOTES-v0.1.2-alpha.md" `
+            --prerelease
+
+          gh release view v0.1.2-alpha
