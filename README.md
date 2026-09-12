@@ -15,6 +15,7 @@
 <p align="center">
   <a href="#install">Install</a> ·
   <a href="#controls">Controls</a> ·
+  <a href="#comparison-tools">Comparison tools</a> ·
   <a href="#status">Status</a> ·
   <a href="#how-it-works">How it works</a>
 </p>
@@ -90,7 +91,23 @@ Allow the release files to overwrite the stock ReShade DLL when prompted.
 > [!WARNING]
 > Do **not** reinstall or update stock ReShade after this step. Star Lifter includes the patched ReShade 6.8.0 compatibility build required to preserve Project Sunrise's **Insert** UI while keeping ReShade/DLSS active.
 
-### 4. Supply the NVIDIA runtime
+### 4. Configure the Star Lifter ReShade controls
+
+Run:
+
+`CONFIGURE-STAR-LIFTER.bat`
+
+This preserves your existing ReShade installation while setting the Star Lifter controls and comparison behavior:
+
+- ReShade overlay input mode = **block game input while the overlay is open**
+- **F5** = save a matched **Before + After** screenshot pair
+- **F6** = toggle the complete ReShade effect chain
+- **F7** = toggle Star Lifter side-by-side comparison
+- **Ctrl + Shift + O** = ReShade overlay
+
+A backup of your existing `ReShade.ini` is created before it is changed.
+
+### 5. Supply the NVIDIA runtime
 
 Put your own legitimate copies of:
 
@@ -103,7 +120,7 @@ into:
 
 NVIDIA runtime binaries are not distributed with this project.
 
-### 5. Install/bootstrap the NVIDIA runtime
+### 6. Install/bootstrap the NVIDIA runtime
 
 If your release package contains:
 
@@ -111,7 +128,7 @@ If your release package contains:
 
 run it and follow the prompts to install/repair the supplied NVIDIA runtime files.
 
-### 6. Launch Project Sunrise through Star Lifter
+### 7. Launch Project Sunrise through Star Lifter
 
 Run:
 
@@ -121,20 +138,48 @@ The launcher filename remains unchanged in v0.1.1-alpha so the proven V7 path is
 
 Do **not** use the older experimental SunriseNRB launchers.
 
-When everything is working:
-
-- **Ctrl + Shift + O** → ReShade
-- **Insert** → Project Sunrise UI
-- DLSS Neural Rendering should be available through the bridge
-
 ## Controls
 
 | Action | Control |
 |---|---|
-| Open ReShade | **Ctrl + Shift + O** |
+| Open / close ReShade | **Ctrl + Shift + O** |
 | Open Project Sunrise UI | **Insert** |
+| Save Before + After screenshot pair | **F5** |
+| Toggle all ReShade effects | **F6** |
+| Toggle side-by-side comparison | **F7** |
+
+Star Lifter configures ReShade with `InputProcessing=2`, so while the ReShade overlay is open Destiny should **not** keep receiving mouse movement or keyboard input in the background. This makes slider adjustment and image comparison much easier.
 
 The separate D3D12 host window is expected and should remain open while using the bridge.
+
+## Comparison tools
+
+Star Lifter bundles two KageBlink ReShade helpers in `reshade-shaders\Shaders\`:
+
+- `KageBlink - SideBySide.fx`
+- `KageBlink - HDR LOG Sliders.fx`
+
+### Side-by-side ordering is important
+
+Enable both comparison techniques and keep them at opposite ends of the ReShade chain:
+
+```text
+DLSSCompare_Capture   ← FIRST / TOP
+...everything else...
+DLSSCompare_Output    ← LAST / BOTTOM
+```
+
+`DLSSCompare_Capture` must be above Lumenite, DLSS5 Feed, grading, sharpening and the rest of the effect chain so it records the unprocessed comparison image.
+
+`DLSSCompare_Output` must be below **everything** so it compares that captured source against the final processed Star Lifter output.
+
+Press **F7** to switch the side-by-side presentation on/off. With F7 off, the output technique passes the normal processed image through unchanged.
+
+### Before / After screenshots
+
+Press **F5** once. ReShade is configured with `SaveBeforeShot=1`, so one keypress writes a matched **Before** image and **After** image from the same screenshot request.
+
+Press **F6** when you simply want to toggle the complete ReShade chain live without changing the preset.
 
 ## Status
 
