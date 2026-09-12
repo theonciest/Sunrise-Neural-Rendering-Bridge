@@ -1,20 +1,36 @@
-# STAR LIFTER
+<h1 align="center">STAR LIFTER</h1>
 
-### Neural Rendering Bridge for Project Sunrise
+<p align="center">
+  <strong>Neural Rendering Bridge for Project Sunrise</strong><br>
+  DLSS Neural Rendering through a D3D11 → D3D12 external host.
+</p>
 
-**DLSS Neural Rendering for Project Sunrise via a D3D11 → D3D12 external host.**
+<p align="center">
+  <img alt="Release" src="https://img.shields.io/badge/release-v0.1.1--alpha-blue">
+  <img alt="Pass 1" src="https://img.shields.io/badge/Pass%201-validated-brightgreen">
+  <img alt="ReShade" src="https://img.shields.io/badge/ReShade-6.8.0-6f42c1">
+  <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%20x64-lightgrey">
+</p>
 
-> **Star Lifter** is the public-facing name of the project formerly called **Sunrise Neural Rendering Bridge / Sunrise NRB**. The proven internal V7 component names and filenames remain unchanged for compatibility.
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#controls">Controls</a> ·
+  <a href="#status">Status</a> ·
+  <a href="#how-it-works">How it works</a>
+</p>
 
-> **Important:** Install and verify **ReShade 6.8.0 with Add-on Support first**, then install **Star Lifter** **over that ReShade installation**. The release includes a Project Sunrise-compatible ReShade 6.8.0 build. Do **not** reinstall or update stock ReShade over Star Lifter afterward, or the Project Sunrise **Insert** UI may stop working again.
+---
+
+> [!IMPORTANT]
+> Install and verify **ReShade 6.8.0 with Add-on Support first**, then install **Star Lifter over that ReShade installation**. Star Lifter includes a Project Sunrise-compatible ReShade build. **Do not reinstall or update stock ReShade afterward**, or Project Sunrise's **Insert** UI may stop working again.
 
 ## Validated coexistence architecture
 
 As of **v0.1.1-alpha**, the tested Project Sunrise path keeps all three components alive at the same time:
 
-- Project Sunrise / `steam_api64.dll`
-- ReShade 6.8.0 + DLSS5 feeder
-- Star Lifter / Sunrise NRB Detours bridge
+- **Project Sunrise** / `steam_api64.dll`
+- **ReShade 6.8.0 + DLSS5 feeder**
+- **Star Lifter / Sunrise NRB Detours bridge**
 
 The compatibility fix is intentionally narrow: ReShade continues to proxy the real Destiny swap chain, but leaves Project Sunrise's exact hidden **64×64 DXGI discovery probe** unproxied so Sunrise can resolve the real system `dxgi.dll` vtable.
 
@@ -71,7 +87,8 @@ Extract the **contents of the ZIP directly into your Project Sunrise root**, nex
 
 Allow the release files to overwrite the stock ReShade DLL when prompted.
 
-> **Do not reinstall or update stock ReShade after this step.** Star Lifter includes a patched ReShade 6.8.0 compatibility build that preserves Project Sunrise's **Insert** UI while keeping ReShade/DLSS active.
+> [!WARNING]
+> Do **not** reinstall or update stock ReShade after this step. Star Lifter includes the patched ReShade 6.8.0 compatibility build required to preserve Project Sunrise's **Insert** UI while keeping ReShade/DLSS active.
 
 ### 4. Supply the NVIDIA runtime
 
@@ -110,12 +127,12 @@ When everything is working:
 - **Insert** → Project Sunrise UI
 - DLSS Neural Rendering should be available through the bridge
 
-The V7 launcher injects one small bridge DLL. That bridge waits until Project Sunrise's Steam module exists, then immediately loads the patched ReShade build. There is no post-module timing sweep and no remote ReShade injection.
-
 ## Controls
 
-- **Ctrl + Shift + O** → ReShade
-- **Insert** → Project Sunrise UI
+| Action | Control |
+|---|---|
+| Open ReShade | **Ctrl + Shift + O** |
+| Open Project Sunrise UI | **Insert** |
 
 The separate D3D12 host window is expected and should remain open while using the bridge.
 
@@ -143,7 +160,8 @@ PASS module chain alive: bridge + Sunrise + patched ReShade
 launcher handoff complete; processExit=0x00000103 bridge=1 steam=1 reshade=1
 ```
 
-Local tested hashes:
+<details>
+<summary><strong>Local tested hashes</strong></summary>
 
 ```text
 Protected Project Sunrise steam_api64.dll
@@ -161,6 +179,8 @@ V7 launcher
 DLSS5 feed
 CCC162E899B132BCDA3F80C5AE3309F0EE0FAB6254B98D0C5DA2F986AF52EE93
 ```
+
+</details>
 
 CI-built portable binaries may have different hashes because of toolchain/build metadata; the source architecture and ReShade compatibility rule are locked under `sunrise/v7/`.
 
@@ -186,6 +206,8 @@ destiny2.exe
                 ├── real Destiny swap chain → normal ReShade proxy
                 └── exact Sunrise 64×64 probe → raw system DXGI object
 ```
+
+The V7 launcher injects one small bridge DLL. That bridge waits until Project Sunrise's Steam module exists, then immediately loads the patched ReShade build. There is no post-module timing sweep and no remote ReShade injection.
 
 The feeder transports D3D11 color, depth, motion, and rendering metadata through shared GPU resources / IPC to the external D3D12 host.
 
