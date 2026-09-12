@@ -1,8 +1,12 @@
-# Sunrise Neural Rendering Bridge
+# STAR LIFTER
+
+### Neural Rendering Bridge for Project Sunrise
 
 **DLSS Neural Rendering for Project Sunrise via a D3D11 → D3D12 external host.**
 
-> **Important:** Install and verify **ReShade 6.8.0 with Add-on Support first**, then install Sunrise Neural Rendering Bridge **over that ReShade installation**. The release includes a Project Sunrise-compatible ReShade 6.8.0 build. Do **not** reinstall or update stock ReShade over Sunrise NRB afterward, or the Project Sunrise **Insert** UI may stop working again.
+> **Star Lifter** is the public-facing name of the project formerly called **Sunrise Neural Rendering Bridge / Sunrise NRB**. The proven internal V7 component names and filenames remain unchanged for compatibility.
+
+> **Important:** Install and verify **ReShade 6.8.0 with Add-on Support first**, then install **Star Lifter** **over that ReShade installation**. The release includes a Project Sunrise-compatible ReShade 6.8.0 build. Do **not** reinstall or update stock ReShade over Star Lifter afterward, or the Project Sunrise **Insert** UI may stop working again.
 
 ## Validated coexistence architecture
 
@@ -10,7 +14,7 @@ As of **v0.1.1-alpha**, the tested Project Sunrise path keeps all three componen
 
 - Project Sunrise / `steam_api64.dll`
 - ReShade 6.8.0 + DLSS5 feeder
-- Sunrise NRB Detours bridge
+- Star Lifter / Sunrise NRB Detours bridge
 
 The compatibility fix is intentionally narrow: ReShade continues to proxy the real Destiny swap chain, but leaves Project Sunrise's exact hidden **64×64 DXGI discovery probe** unproxied so Sunrise can resolve the real system `dxgi.dll` vtable.
 
@@ -37,7 +41,7 @@ On the validated RTX 3080 Ti configuration:
 
 ### 1. Start with a working Project Sunrise install
 
-Make sure Project Sunrise launches normally before installing Sunrise Neural Rendering Bridge.
+Make sure Project Sunrise launches normally before installing Star Lifter.
 
 Do **not** replace or modify:
 
@@ -57,9 +61,9 @@ Launch Project Sunrise once at this point and press **Ctrl + Shift + O** to conf
 
 If ReShade does not work here, stop and fix the base ReShade installation before continuing.
 
-### 3. Install Sunrise Neural Rendering Bridge
+### 3. Install Star Lifter
 
-Download the latest Sunrise Neural Rendering Bridge release.
+Download the latest Star Lifter release.
 
 Extract the **contents of the ZIP directly into your Project Sunrise root**, next to:
 
@@ -67,7 +71,7 @@ Extract the **contents of the ZIP directly into your Project Sunrise root**, nex
 
 Allow the release files to overwrite the stock ReShade DLL when prompted.
 
-> **Do not reinstall or update stock ReShade after this step.** Sunrise NRB includes a patched ReShade 6.8.0 compatibility build that preserves Project Sunrise's **Insert** UI while keeping ReShade/DLSS active.
+> **Do not reinstall or update stock ReShade after this step.** Star Lifter includes a patched ReShade 6.8.0 compatibility build that preserves Project Sunrise's **Insert** UI while keeping ReShade/DLSS active.
 
 ### 4. Supply the NVIDIA runtime
 
@@ -90,11 +94,13 @@ If your release package contains:
 
 run it and follow the prompts to install/repair the supplied NVIDIA runtime files.
 
-### 6. Launch Project Sunrise through Sunrise NRB
+### 6. Launch Project Sunrise through Star Lifter
 
 Run:
 
 `SUNRISE-NRB.bat`
+
+The launcher filename remains unchanged in v0.1.1-alpha so the proven V7 path is not disturbed.
 
 Do **not** use the older experimental SunriseNRB launchers.
 
@@ -189,7 +195,7 @@ NVIDIA proprietary runtime binaries are **not** shipped by this repository. User
 
 ## Source / upstream
 
-This repository is a Project Sunrise-focused fork of **DLSS5-Feeder by Jean-Laurent ROUZIES**.
+Star Lifter is a Project Sunrise-focused fork of **DLSS5-Feeder by Jean-Laurent ROUZIES**.
 
 - Upstream feeder: `jlrouzies-fr/DLSS5-Feeder`
 - ReShade: `crosire/reshade`
@@ -199,6 +205,6 @@ See `THIRD-PARTY-NOTICES.md` and `third-party/licenses/`.
 
 ## Legal / independence notice
 
-Sunrise Neural Rendering Bridge is an independent interoperability project. It is not affiliated with, sponsored by, approved by, or endorsed by NVIDIA, AMD, Bungie, ReShade, RenoDX, Microsoft, or Project Sunrise unless explicitly stated by the relevant rights holder.
+Star Lifter is an independent interoperability project. It is not affiliated with, sponsored by, approved by, or endorsed by NVIDIA, AMD, Bungie, ReShade, RenoDX, Microsoft, or Project Sunrise unless explicitly stated by the relevant rights holder.
 
 No Destiny executable, Bungie game assets, Project Sunrise binaries, or NVIDIA proprietary runtime binaries are included in the public release.
