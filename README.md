@@ -1,4 +1,4 @@
-<h1 align="center">STAR LIFTER</h1>
+<h1 align="center">STAR 💫 LIFTER 🌌</h1>
 
 <p align="center">
   <strong>Neural Rendering Bridge for Project Sunrise</strong><br>
