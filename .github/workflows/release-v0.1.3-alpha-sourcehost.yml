@@ -171,8 +171,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "ReShade build failed: $LASTEXITCODE" }
           $dll = "$rr\bin\x64\Release\ReShade64.dll"
           if (!(Test-Path $dll)) { throw 'Patched ReShade64.dll missing.' }
-          $fxc = Get-ChildItem -LiteralPath $rr -Recurse -File -Filter 'ReShadeFXC.exe' | Select-Object -First 1
-          if (!$fxc) { throw 'ReShadeFXC.exe missing.' }
+          $fxc = Get-ChildItem -LiteralPath $rr -Recurse -File |
+            Where-Object { $_.Name -in @('fxc.exe','ReShadeFXC.exe') } |
+            Select-Object -First 1
+          if (!$fxc) { throw 'ReShadeFXC compiler output missing (expected fxc.exe or ReShadeFXC.exe).' }
+          Write-Host "[PASS] ReShadeFXC compiler: $($fxc.FullName)"
           "PATCHED_RESHADE=$dll" >> $env:GITHUB_ENV
           "RESHADFXC=$($fxc.FullName)" >> $env:GITHUB_ENV
 
