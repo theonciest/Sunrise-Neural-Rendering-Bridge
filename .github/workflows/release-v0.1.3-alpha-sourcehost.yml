@@ -26,8 +26,6 @@ jobs:
       NVIDIA_DLSS_SDK_COMMIT: 374959484e79a640feaba44c93ac8cfb0a03f5b5
       RENODX_ARCHIVE_URL: https://github.com/RankFTW/rhi-repo/releases/download/renodx-dlss5-4.60/renodx-dlss5_4.60.zip
       RENODX_ARCHIVE_SHA256: ad30994ba898f3eed5a4c7953927db9759c680a71bc9d9855cac93e9ccc1e3c6
-      RENODX_ADDON_SHA256: 9150097CDEE2953CDC9894D2E5606EA5100E6C8F95FC7BB1B407328B4391A07A
-
     steps:
       - name: Checkout Star Lifter
         uses: actions/checkout@v4
@@ -108,9 +106,8 @@ jobs:
           $addon = Get-ChildItem -LiteralPath $dir -Recurse -File -Filter 'renodx-dlss5.addon64' | Select-Object -First 1
           if (!$addon) { throw 'RenoDX archive is missing renodx-dlss5.addon64.' }
           $addonHash = (Get-FileHash $addon.FullName -Algorithm SHA256).Hash
-          if ($addonHash -ne $env:RENODX_ADDON_SHA256) { throw "RenoDX add-on hash does not match the locally validated build: $addonHash" }
-
-      - name: Build Microsoft Detours 4.0.1
+          "RENODX_RESOLVED_ADDON_SHA256=$addonHash" >> $env:GITHUB_ENV
+          Write-Host "[PASS] Pinned RenoDX archive verified. Extracted add-on SHA256: $addonHash"- name: Build Microsoft Detours 4.0.1
         shell: pwsh
         run: |
           $detours = "$env:RUNNER_TEMP\detours"
@@ -248,7 +245,9 @@ jobs:
             "helper host source: jlrouzies-fr/DLSS5-Feeder@$env:HOST_SOURCE_COMMIT",
             "helper host build SHA256: $env:HOST_HASH",
             "NVIDIA DLSS SDK headers/import library: NVIDIA/DLSS@$env:NVIDIA_DLSS_SDK_COMMIT",
-            "ReShade source: crosire/reshade@$env:RESHADE_COMMIT"
+            "ReShade source: crosire/reshade@$env:RESHADE_COMMIT",
+            "RenoDX archive SHA256: $env:RENODX_ARCHIVE_SHA256",
+            "RenoDX resolved add-on SHA256: $env:RENODX_RESOLVED_ADDON_SHA256"
           ) | Set-Content (Join-Path $pkg 'STAR-LIFTER-BUILD-PROVENANCE.txt') -Encoding UTF8
           $nvidiaDir = Join-Path $pkg 'USER-RUNTIME\NVIDIA'
           New-Item -ItemType Directory -Force $nvidiaDir | Out-Null

@@ -86,7 +86,7 @@ The installer now performs the complete deployment:
 - installs the known-good 64-bit helper host
 - installs the patched ReShade 6.8.0 build for the Sunrise coexistence bridge and host
 - installs the V7 Sunrise NRB bridge + launcher
-- downloads and verifies pinned **RenoDX DLSS5 4.60**
+- downloads the pinned public **RenoDX DLSS5 4.60** archive and verifies its SHA-256
 - downloads pinned **LumeniteFX**
 - copies your NVIDIA runtime into `host64`
 - configures the actual DLSS effect chain and hotkeys
@@ -161,7 +161,7 @@ Before publishing, CI:
 4. creates the ZIP,
 5. extracts that **finished ZIP into a second clean directory**,
 6. verifies required paths and payload hashes from the extracted artifact,
-7. verifies the known-good helper host and Star Lifter F5 patch,
+7. verifies the source-built helper host, pinned RenoDX archive and Star Lifter F5 patch,
 8. only then publishes the GitHub release.
 
 The shipped ZIP is the release authority.

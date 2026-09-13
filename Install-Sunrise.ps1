@@ -74,12 +74,8 @@ try {
         $RenoAddon = Get-ChildItem -LiteralPath $RenoDir -Recurse -File -Filter 'renodx-dlss5.addon64' | Select-Object -First 1
         if (!$RenoAddon) { throw 'Pinned RenoDX archive did not contain renodx-dlss5.addon64.' }
         $RenoAddonHash = (Get-FileHash -LiteralPath $RenoAddon.FullName -Algorithm SHA256).Hash
-        if ($RenoAddonHash -ne '9150097CDEE2953CDC9894D2E5606EA5100E6C8F95FC7BB1B407328B4391A07A') {
-            throw "Pinned RenoDX add-on is not the locally validated build: $RenoAddonHash"
-        }
-        Pass 'Prepared locally validated RenoDX DLSS5 4.60.'
-
-        $LumZip = Join-Path $Temp 'lumenite.zip'
+        Pass 'Prepared pinned public RenoDX DLSS5 4.60 archive.'
+        Info "Resolved RenoDX add-on SHA256: $RenoAddonHash"$LumZip = Join-Path $Temp 'lumenite.zip'
         $LumDir = Join-Path $Temp 'lumenite'
         $LumCommit = 'f8cbbb4eccfcb7adf0d74bb358ba349272e3c1e9'
         Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/umar-afzaal/LumeniteFX/archive/$LumCommit.zip" -OutFile $LumZip
@@ -140,19 +136,22 @@ try {
         foreach ($rel in $RequiredInstalled) {
             if (!(Test-Path -LiteralPath (Join-Path $Sunrise $rel))) { throw "Post-install assertion failed: $rel" }
         }
-        if ((Get-FileHash -LiteralPath (Join-Path $Host64 'renodx-dlss5.addon64') -Algorithm SHA256).Hash -ne '9150097CDEE2953CDC9894D2E5606EA5100E6C8F95FC7BB1B407328B4391A07A') {
-            throw 'Installed RenoDX add-on hash changed.'
+        $InstalledRenoHash = (Get-FileHash -LiteralPath (Join-Path $Host64 'renodx-dlss5.addon64') -Algorithm SHA256).Hash
+        if ($InstalledRenoHash -ne $RenoAddonHash) {
+            throw 'Installed RenoDX add-on hash changed during copy.'
         }
-
-        if ($ProtectedSteamHash) {
+        Pass "Installed RenoDX add-on SHA256: $InstalledRenoHash"if ($ProtectedSteamHash) {
             $afterSteam = (Get-FileHash -LiteralPath $ProtectedSteam -Algorithm SHA256).Hash
             if ($afterSteam -ne $ProtectedSteamHash) { throw 'PROTECTED steam_api64.dll changed during install. Stop and restore your Sunrise install.' }
         }
 
-        [pscustomobject]@{ installedAt=(Get-Date).ToString('o'); sunrisePath=$Sunrise; files=$records } |
-            ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $BackupRoot 'installed-manifest.json') -Encoding UTF8
-
-        Write-Host ''
+        [pscustomobject]@{
+            installedAt=(Get-Date).ToString('o')
+            sunrisePath=$Sunrise
+            renodxArchiveSha256=$RenoHash
+            renodxAddonSha256=$InstalledRenoHash
+            files=$records
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $BackupRoot 'installed-manifest.json') -Encoding UTF8Write-Host ''
         Write-Host '============================================================' -ForegroundColor Green
         Write-Host ' STAR LIFTER INSTALLATION COMPLETE' -ForegroundColor Green
         Write-Host '============================================================' -ForegroundColor Green

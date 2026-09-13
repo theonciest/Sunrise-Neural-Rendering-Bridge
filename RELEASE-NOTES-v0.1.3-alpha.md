@@ -11,7 +11,7 @@ This release replaces the old inherited-ZIP delivery path with a clean-room pack
 - The game-side feeder includes the Star Lifter **F5 Neural Rendering toggle**.
 - **F4** feeder panel, **F5** Neural Rendering, **F6** Before/After screenshots, **F7** side-by-side and **F8** HDR grading bypass are the intended controls.
 - The configurator now sets `DLSS5_MV_PROVIDER=3` and builds the required ReShade technique order automatically.
-- The installer fetches pinned **LumeniteFX** and **RenoDX DLSS5 4.60** from their public upstream locations rather than relying on stale files from an older Star Lifter ZIP.
+- The installer fetches pinned **LumeniteFX** and the pinned public **RenoDX DLSS5 4.60** archive from upstream, verifies the archive SHA-256, and records the exact extracted RenoDX add-on hash.
 
 ## NVIDIA runtime
 
