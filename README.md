@@ -6,117 +6,64 @@
 </p>
 
 <p align="center">
-  <img alt="Release" src="https://img.shields.io/badge/release-v0.1.1--alpha-blue">
+  <img alt="Release" src="https://img.shields.io/badge/release-v0.1.3--alpha-blue">
   <img alt="Pass 1" src="https://img.shields.io/badge/Pass%201-validated-brightgreen">
   <img alt="ReShade" src="https://img.shields.io/badge/ReShade-6.8.0-6f42c1">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%20x64-lightgrey">
 </p>
 
-<p align="center">
-  <a href="#install">Install</a> ·
-  <a href="#controls">Controls</a> ·
-  <a href="#comparison-tools">Comparison tools</a> ·
-  <a href="#status">Status</a> ·
-  <a href="#how-it-works">How it works</a>
-</p>
-
 ---
 
 > [!IMPORTANT]
-> Install and verify **ReShade 6.8.0 with Add-on Support first**, then install **Star Lifter over that ReShade installation**. Star Lifter includes a Project Sunrise-compatible ReShade build. **Do not reinstall or update stock ReShade afterward**, or Project Sunrise's **Insert** UI may stop working again.
+> **v0.1.3-alpha changes the delivery, not the proven Sunrise coexistence architecture.** The installer now deploys the complete Star Lifter runtime from a clean manifest. You should no longer search for add-ons, move `host64` by hand, or copy nested release files around manually.
 
-## Validated coexistence architecture
+## What Star Lifter keeps alive together
 
-As of **v0.1.1-alpha**, the tested Project Sunrise path keeps all three components alive at the same time:
+The validated Project Sunrise path keeps all three components alive in the same process:
 
-- **Project Sunrise** / `steam_api64.dll`
+- **Project Sunrise** / protected `bin\x64\steam_api64.dll`
 - **ReShade 6.8.0 + DLSS5 feeder**
-- **Star Lifter / Sunrise NRB Detours bridge**
+- **Star Lifter / Sunrise NRB V7 Detours bridge**
 
-The compatibility fix is intentionally narrow: ReShade continues to proxy the real Destiny swap chain, but leaves Project Sunrise's exact hidden **64×64 DXGI discovery probe** unproxied so Sunrise can resolve the real system `dxgi.dll` vtable.
-
-On the validated RTX 3080 Ti configuration:
-
-- **Ctrl + Shift + O** opens ReShade.
-- **Insert** opens the Project Sunrise UI.
-- DLSS Neural Rendering remains active.
-- Project Sunrise's protected `steam_api64.dll` remains byte-for-byte unchanged.
+ReShade continues to proxy the real Destiny swap chain but leaves Project Sunrise's exact hidden **64×64 DXGI discovery probe** unproxied so Sunrise can resolve the real system DXGI vtable.
 
 ## Requirements
 
-- A working Project Sunrise install
-- NVIDIA RTX GPU
-- Current NVIDIA graphics driver
-- **ReShade 6.8.0 with Add-on Support**
-- **LumeniteFX**
-- `nvngx_dlss.dll`
-- `nvngx_dlssnr.dll`
+- A working Project Sunrise installation against the correct Destiny depot
+- NVIDIA RTX GPU and current NVIDIA driver
+- ReShade **6.8.0 with Add-on Support** installed/launched once so the game has a normal `ReShade.ini`
+- Legitimate copies of:
+  - `nvngx_dlss.dll`
+  - `nvngx_dlssnr.dll`
+- Internet access during installation for the pinned LumeniteFX and RenoDX runtime dependencies
 
-> NVIDIA runtime files are not included.
+Star Lifter does **not** distribute NVIDIA proprietary runtime DLLs.
 
 ## Install
 
-The install order has **not changed** for the current Star Lifter development build. The recent F4–F8 control work changes runtime controls, not the folder layout or base install sequence.
+### 1. Verify Project Sunrise first
 
-### 1. Start with a working Project Sunrise install
+Launch Project Sunrise normally before installing Star Lifter. If Sunrise itself is not working, fix that first.
 
-Make sure Project Sunrise launches normally before installing Star Lifter.
-
-Do **not** replace or modify:
+Star Lifter must **not** replace or modify:
 
 `bin\x64\steam_api64.dll`
 
-### 2. Install ReShade 6.8.0 with Add-on Support **first**
+### 2. Install ReShade 6.8.0 with Add-on Support once
 
-Install **ReShade 6.8.0 with Add-on Support** to your Project Sunrise `destiny2.exe`.
+Install ReShade 6.8.0 with Add-on Support for `destiny2.exe` using **DirectX 10 / 11 / 12** and launch once so its normal configuration exists.
 
-Choose:
+You do **not** need to manually install Star Lifter's Lumenite/RenoDX pieces afterward; the v0.1.3 installer handles the pinned runtime dependencies.
 
-**DirectX 10 / 11 / 12**
+### 3. Extract Star Lifter
 
-Install **LumeniteFX** and any other ReShade effects you want.
+Download `STAR-LIFTER-v0.1.3-alpha.zip` and extract it.
 
-Launch Project Sunrise once at this point and press **Ctrl + Shift + O** to confirm the normal ReShade overlay opens.
+You may extract it into the Project Sunrise root or into a temporary folder; the installer checks its own folder first, common Sunrise locations next, then prompts if necessary.
 
-If ReShade does not work here, stop and fix the base ReShade installation before continuing.
+### 4. Supply your NVIDIA runtime
 
-### 3. Install Star Lifter
-
-Download the latest Star Lifter release.
-
-Extract the **contents of the ZIP directly into your Project Sunrise root**, next to:
-
-`destiny2.exe`
-
-Allow the release files to overwrite the stock ReShade DLL when prompted.
-
-> [!WARNING]
-> Do **not** reinstall or update stock ReShade after this step. Star Lifter includes the patched ReShade 6.8.0 compatibility build required to preserve Project Sunrise's **Insert** UI while keeping ReShade/DLSS active.
-
-### 4. Configure the Star Lifter ReShade controls
-
-Run:
-
-`CONFIGURE-STAR-LIFTER.bat`
-
-This preserves your existing ReShade installation while setting the Star Lifter controls and comparison behavior:
-
-- ReShade overlay input mode = **block game input while the overlay is open**
-- **F4** = show / hide the DLSS 5 feeder panel in-game
-- **F5** = toggle DLSS Neural Rendering through the feeder's host-settings path
-- **F6** = save a matched **Before + After** screenshot pair
-- **F7** = toggle Star Lifter side-by-side comparison
-- **F8** = toggle KageBlink HDR grading on / off
-- **Ctrl + Shift + O** = ReShade overlay
-
-A backup of your existing `ReShade.ini` is created before it is changed.
-
-> [!NOTE]
-> The current F5 implementation applies the Neural Rendering state through the feeder's host settings and restarts the helper host. A brief host interruption while the setting is applied is expected. This is different from RenoDX's old background `NRToggleKey` path and avoids relying on a simulated global F5 hotkey.
-
-### 5. Supply the NVIDIA runtime
-
-Put your own legitimate copies of:
+Inside the extracted Star Lifter package, put your legitimate copies of:
 
 - `nvngx_dlss.dll`
 - `nvngx_dlssnr.dll`
@@ -125,25 +72,36 @@ into:
 
 `USER-RUNTIME\NVIDIA\`
 
-NVIDIA runtime binaries are not distributed with this project.
-
-### 6. Install/bootstrap the NVIDIA runtime
-
-If your release package contains:
-
-`BOOTSTRAP-NVIDIA-RUNTIME.bat`
-
-run it and follow the prompts to install/repair the supplied NVIDIA runtime files.
-
-### 7. Launch Project Sunrise through Star Lifter
+### 5. Run the installer
 
 Run:
 
+`Install-Sunrise.bat`
+
+The installer now performs the complete deployment:
+
+- validates every file in the shipped payload manifest before touching Sunrise
+- backs up files it will replace
+- installs the patched game-side DLSS feeder
+- installs the known-good 64-bit helper host
+- installs the patched ReShade 6.8.0 build for the Sunrise coexistence bridge and host
+- installs the V7 Sunrise NRB bridge + launcher
+- downloads and verifies pinned **RenoDX DLSS5 4.60**
+- downloads pinned **LumeniteFX**
+- copies your NVIDIA runtime into `host64`
+- configures the actual DLSS effect chain and hotkeys
+- verifies the required final files exist
+- verifies Project Sunrise's protected `steam_api64.dll` did not change
+
+There is no manual "search for addon", no manual `host64` relocation, and no separate shader-copy step.
+
+### 6. Launch through Star Lifter
+
+From the Project Sunrise root run:
+
 `SUNRISE-NRB.bat`
 
-The launcher filename remains unchanged in v0.1.1-alpha so the proven V7 path is not disturbed.
-
-Do **not** use the older experimental SunriseNRB launchers.
+Do not use old experimental SunriseNRB launchers.
 
 ## Controls
 
@@ -153,44 +111,26 @@ Do **not** use the older experimental SunriseNRB launchers.
 | Open Project Sunrise UI | **Insert** |
 | Show / hide DLSS 5 feeder panel | **F4** |
 | Toggle DLSS Neural Rendering | **F5** |
-| Save Before + After screenshot pair | **F6** |
+| Save matched Before + After screenshots | **F6** |
 | Toggle side-by-side comparison | **F7** |
-| Toggle KageBlink HDR grading | **F8** |
+| Bypass / restore KageBlink HDR grading | **F8** |
 
-Star Lifter configures ReShade with `InputProcessing=2`, so while the ReShade overlay is open Destiny should **not** keep receiving mouse movement or keyboard input in the background. This makes slider adjustment and image comparison much easier.
+F5 uses Star Lifter's game-side input path. It changes RenoDX's `NeuralUplift` setting in the helper configuration and deterministically restarts the helper. It does not rely on RenoDX's background global F5 hotkey.
 
-The DLSS helper runs separately from Destiny. With the normal `host_window=0` feeder configuration its tuning panel is accessed from inside the game with **F4**.
+## Effect chain installed by the configurator
 
-## Comparison tools
-
-Star Lifter bundles two KageBlink ReShade helpers in `reshade-shaders\Shaders\`:
-
-- `KageBlink - SideBySide.fx`
-- `KageBlink - HDR LOG Sliders.fx`
-
-### Side-by-side ordering is important
-
-Enable both comparison techniques and keep them at opposite ends of the ReShade chain:
+Star Lifter sets `DLSS5_MV_PROVIDER=3` and forces the important techniques into this order:
 
 ```text
-DLSSCompare_Capture   ← FIRST / TOP
-...everything else...
-DLSSCompare_Output    ← LAST / BOTTOM
+DLSSCompare_Capture
+Lumenite_Kernel
+DLSS5_Feed
+KB_HDR_LogWheels
+...any unrelated existing effects...
+DLSSCompare_Output
 ```
 
-`DLSSCompare_Capture` must be above Lumenite, DLSS5 Feed, grading, sharpening and the rest of the effect chain so it records the unprocessed comparison image.
-
-`DLSSCompare_Output` must be below **everything** so it compares that captured source against the final processed Star Lifter output.
-
-Press **F7** to switch the side-by-side presentation on/off. With F7 off, the output technique passes the normal processed image through unchanged.
-
-### Before / After screenshots
-
-Press **F6** once. ReShade is configured with `SaveBeforeShot=1`, so one keypress writes a matched **Before** image and **After** image from the same screenshot request.
-
-### HDR grading
-
-The KageBlink HDR grading shader exposes the current temperature, tint, shadow/midtone/highlight, range, RGB, color boost, saturation, mid-detail and sharpness controls. Press **F8** to bypass / restore the HDR grading shader without changing the saved values.
+`DLSSCompare_Capture` must remain first and `DLSSCompare_Output` must remain last for F7 comparisons to be meaningful.
 
 ## Status
 
@@ -205,89 +145,44 @@ The KageBlink HDR grading shader exposes the current temperature, tint, shadow/m
 | F5 Neural Rendering toggle | ✅ Working through host-settings restart path |
 | F6 matched Before / After screenshots | ✅ Working |
 | F7 side-by-side comparison | ✅ Working |
-| F8 HDR grading bypass | ✅ Working |
-| Neural Rendering Work Scale | ✅ 50–100%; below 50% is the next validation target |
+| F8 HDR grading bypass | ✅ Shader-owned |
+| Neural Rendering Work Scale | ✅ 50–100%; below 50% is a separate validation target |
 | FSR3 Frame Generation | 🧪 Experimental |
 
-## Pass-1 validation authority
+## Clean-room release rule
 
-The September 11, 2026 validation run observed the complete live module chain and left Destiny running:
+v0.1.3-alpha and later are built from an **empty staging directory**. The release workflow does not download or inherit an older Star Lifter ZIP.
 
-```text
-MODULE SunriseNRB.dll observed
-MODULE steam_api64.dll observed
-MODULE ReShade64.dll observed
-PASS module chain alive: bridge + Sunrise + patched ReShade
-launcher handoff complete; processExit=0x00000103 bridge=1 steam=1 reshade=1
-```
+Before publishing, CI:
 
-<details>
-<summary><strong>Local tested hashes</strong></summary>
+1. builds/fetches the pinned components,
+2. creates the complete payload manifest from the staged files,
+3. rejects forbidden and stale files,
+4. creates the ZIP,
+5. extracts that **finished ZIP into a second clean directory**,
+6. verifies required paths and payload hashes from the extracted artifact,
+7. verifies the known-good helper host and Star Lifter F5 patch,
+8. only then publishes the GitHub release.
 
-```text
-Protected Project Sunrise steam_api64.dll
-EEF191955C803D7A4B0BDC079ABEC519CD2BFD0C3909C7C19B6B7BAA078553DB
+The shipped ZIP is the release authority.
 
-Patched ReShade64.dll
-9E85F8644830338F48EF6F4DB4E0BAE66F0B3FAF9BE2189CEF26F3B65B4A8E18
+## Distribution
 
-V7 bridge
-0977BCD616771A71D9E3CB78C510C1D3A03AF5265A4E465AB61B64CFDA88920F
+The release does **not** contain:
 
-V7 launcher
-43EC5E9EF325B4EDEE7B7F44176C9DB6CD73A05F6E2B01A38D6D9B2B63CB5714
+- `steam_api64.dll`
+- `destiny2.exe`
+- `nvngx_dlss.dll`
+- `nvngx_dlssnr.dll`
 
-DLSS5 feed
-CCC162E899B132BCDA3F80C5AE3309F0EE0FAB6254B98D0C5DA2F986AF52EE93
-```
-
-</details>
-
-CI-built portable binaries may have different hashes because of toolchain/build metadata; the source architecture and ReShade compatibility rule are locked under `sunrise/v7/`.
-
-## How it works
-
-```text
-SUNRISE-NRB.bat
-      │
-      ▼
-Detours V7 launcher
-      │ injects one bridge DLL
-      ▼
-destiny2.exe
-      │
-      ├── Project Sunrise steam_api64.dll
-      │
-      └── SunriseNRB.dll worker
-                │ waits for steam_api64.dll
-                │ zero post-module delay
-                ▼
-         patched ReShade 6.8.0
-                │
-                ├── real Destiny swap chain → normal ReShade proxy
-                └── exact Sunrise 64×64 probe → raw system DXGI object
-```
-
-The V7 launcher injects one small bridge DLL. That bridge waits until Project Sunrise's Steam module exists, then immediately loads the patched ReShade build. There is no post-module timing sweep and no remote ReShade injection.
-
-The feeder transports D3D11 color, depth, motion, and rendering metadata through shared GPU resources / IPC to the external D3D12 host.
-
-## NVIDIA runtime
-
-NVIDIA proprietary runtime binaries are **not** shipped by this repository. Users supply legitimate copies separately.
+Users supply NVIDIA runtime files separately. Project Sunrise game/binary content is not redistributed.
 
 ## Source / upstream
 
-Star Lifter is a Project Sunrise-focused fork of **DLSS5-Feeder by Jean-Laurent ROUZIES**.
+Star Lifter is a Project Sunrise-focused integration built around **DLSS5-Feeder by Jean-Laurent ROUZIES**, ReShade, Microsoft Detours, RenoDX DLSS5 and LumeniteFX.
 
-- Upstream feeder: `jlrouzies-fr/DLSS5-Feeder`
-- ReShade: `crosire/reshade`
-- Microsoft Detours: `microsoft/Detours`
-
-See `THIRD-PARTY-NOTICES.md` and `third-party/licenses/`.
+See `THIRD-PARTY-NOTICES.md` and the repository source for attribution and pinned dependency details.
 
 ## Legal / independence notice
 
-Star Lifter is an independent interoperability project. It is not affiliated with, sponsored by, approved by, or endorsed by NVIDIA, AMD, Bungie, ReShade, RenoDX, Microsoft, or Project Sunrise unless explicitly stated by the relevant rights holder.
-
-No Destiny executable, Bungie game assets, Project Sunrise binaries, or NVIDIA proprietary runtime binaries are included in the public release.
+Star Lifter is an independent interoperability project. It is not affiliated with, sponsored by, approved by, or endorsed by NVIDIA, AMD, Bungie, ReShade, RenoDX, Microsoft, LumeniteFX, or Project Sunrise unless explicitly stated by the relevant rights holder.
