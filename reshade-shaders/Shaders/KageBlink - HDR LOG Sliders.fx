@@ -5,6 +5,14 @@
 
 #include "ReShade.fxh"
 
+// F8 = VK_F8 (0x77). False by default means grading is active; pressing F8 toggles
+// the bypass without changing any saved grading values.
+uniform bool KB_HDRBypass <
+    source = "key";
+    keycode = 0x77;
+    mode = "toggle";
+>;
+
 // -----------------------------------------------------------------------------
 // UI
 // -----------------------------------------------------------------------------
@@ -70,8 +78,6 @@ uniform float KB_HighRange <
     ui_category = "01 - Primaries - Log Wheels";
 > = 0.550;
 
-// Vector drags intentionally use -1..+1 with 0 = neutral. ReShade shows the
-// components as RGB numeric controls. The custom add-on can render these as wheels.
 uniform float3 KB_ShadowRGB <
     ui_type = "drag";
     ui_min = -1.0; ui_max = 1.0; ui_step = 0.001;
@@ -178,74 +184,65 @@ uniform float KB_SharpLimit <
     ui_type = "drag";
     ui_min = 0.05; ui_max = 4.0; ui_step = 0.01;
     ui_label = "Sharpness Halo Limit";
-    ui_tooltip = "Caps extreme local contrast before sharpening. Higher = more savage / more halo-prone.";
+    ui_tooltip = "Caps local high-pass energy before the sharpness amount is applied.";
     ui_category = "07 - Detail / Sharpness";
-> = 1.0;
-
-uniform float KB_ColorBoost <
-    ui_type = "drag";
-    ui_min = -100.0; ui_max = 100.0; ui_step = 0.1;
-    ui_label = "Color Boost";
-    ui_tooltip = "Adaptive saturation: strongest on less-saturated colors.";
-    ui_category = "06 - Primaries Extras";
-> = 0.0;
+> = 0.75;
 
 uniform float KB_Shadows <
     ui_type = "drag";
-    ui_min = -2.0; ui_max = 2.0; ui_step = 0.001;
+    ui_min = -4.0; ui_max = 4.0; ui_step = 0.01;
     ui_label = "Shadows";
     ui_category = "06 - Primaries Extras";
 > = 0.0;
 
 uniform float KB_Highlights <
     ui_type = "drag";
-    ui_min = -2.0; ui_max = 2.0; ui_step = 0.001;
+    ui_min = -4.0; ui_max = 4.0; ui_step = 0.01;
     ui_label = "Highlights";
     ui_category = "06 - Primaries Extras";
 > = 0.0;
 
+uniform float KB_ColorBoost <
+    ui_type = "drag";
+    ui_min = -100.0; ui_max = 100.0; ui_step = 0.1;
+    ui_label = "Color Boost";
+    ui_category = "06 - Primaries Extras";
+> = 0.0;
+
 uniform float KB_Saturation <
-    ui_type = "slider";
+    ui_type = "drag";
     ui_min = 0.0; ui_max = 100.0; ui_step = 0.1;
     ui_label = "Saturation";
     ui_category = "06 - Primaries Extras";
 > = 50.0;
 
 uniform float KB_Hue <
-    ui_type = "slider";
+    ui_type = "drag";
     ui_min = 0.0; ui_max = 100.0; ui_step = 0.1;
     ui_label = "Hue";
-    ui_tooltip = "50 is neutral. 0..100 spans a full hue rotation.";
     ui_category = "06 - Primaries Extras";
 > = 50.0;
 
 uniform bool KB_GamutClamp <
-    ui_label = "Clamp negative / invalid gamut";
-    ui_tooltip = "Useful for HDR10 PQ output. Leave off for scRGB if you want to preserve negative scRGB values.";
-    ui_category = "08 - Safety";
+    ui_label = "Clamp negative gamut";
+    ui_category = "00 - HDR / Signal";
 > = true;
 
-// -----------------------------------------------------------------------------
-// Color management
-// Internal working space: linear-light BT.2020, scaled so 1.0 = reference white.
-// -----------------------------------------------------------------------------
-
-static const float KB_PQ_m1 = 0.1593017578125; // 2610 / 16384
-static const float KB_PQ_m2 = 78.84375;        // 2523 / 32
-static const float KB_PQ_c1 = 0.8359375;       // 3424 / 4096
-static const float KB_PQ_c2 = 18.8515625;      // 2413 / 128
-static const float KB_PQ_c3 = 18.6875;         // 2392 / 128
+static const float KB_PQ_m1 = 0.1593017578125;
+static const float KB_PQ_m2 = 78.84375;
+static const float KB_PQ_c1 = 0.8359375;
+static const float KB_PQ_c2 = 18.8515625;
+static const float KB_PQ_c3 = 18.6875;
 
 float KB_sRGBToLinear1(float x)
 {
-    x = max(x, 0.0);
-    return (x <= 0.04045) ? (x / 12.92) : pow((x + 0.055) / 1.055, 2.4);
+    return (x <= 0.04045) ? x / 12.92 : pow((x + 0.055) / 1.055, 2.4);
 }
 
 float KB_LinearToSRGB1(float x)
 {
     x = max(x, 0.0);
-    return (x <= 0.0031308) ? (12.92 * x) : (1.055 * pow(x, 1.0 / 2.4) - 0.055);
+    return (x <= 0.0031308) ? 12.92 * x : 1.055 * pow(x, 1.0 / 2.4) - 0.055;
 }
 
 float3 KB_sRGBToLinear(float3 x)
@@ -264,7 +261,7 @@ float KB_PQToLinear1(float N)
     float p = pow(N, 1.0 / KB_PQ_m2);
     float num = max(p - KB_PQ_c1, 0.0);
     float den = max(KB_PQ_c2 - KB_PQ_c3 * p, 1e-6);
-    return pow(num / den, 1.0 / KB_PQ_m1); // 0..1 => 0..10000 nits
+    return pow(num / den, 1.0 / KB_PQ_m1);
 }
 
 float KB_LinearToPQ1(float L)
@@ -304,15 +301,10 @@ float3 KB_2020To709(float3 c)
 
 float3 KB_Decode(float3 encoded)
 {
-    // SDR / sRGB -> linear Rec.709 -> linear BT.2020.
     if (KB_SignalType == 0)
         return KB_709To2020(KB_sRGBToLinear(encoded));
-
-    // scRGB is linear with sRGB/Rec.709 primaries. Nominal scRGB 1.0 = 80 nits.
     if (KB_SignalType == 1)
         return KB_709To2020(encoded * (80.0 / max(KB_HDRReferenceWhite, 1.0)));
-
-    // HDR10 PQ is BT.2020, with ST.2084 normalized to 10,000 nits.
     float3 absNorm = KB_PQToLinear(encoded);
     return absNorm * (10000.0 / max(KB_HDRReferenceWhite, 1.0));
 }
@@ -321,13 +313,10 @@ float3 KB_Encode(float3 working)
 {
     if (KB_GamutClamp || KB_SignalType != 1)
         working = max(working, 0.0);
-
     if (KB_SignalType == 0)
         return KB_LinearToSRGB(KB_2020To709(working));
-
     if (KB_SignalType == 1)
         return KB_2020To709(working) * (max(KB_HDRReferenceWhite, 1.0) / 80.0);
-
     float3 absNorm = working * (max(KB_HDRReferenceWhite, 1.0) / 10000.0);
     return KB_LinearToPQ(absNorm);
 }
@@ -337,8 +326,6 @@ float KB_Luma2020(float3 c)
     return dot(c, float3(0.2627, 0.6780, 0.0593));
 }
 
-// Smooth normalized HDR luminance. Reference white maps to 0.5, highlights remain
-// addressable rather than being hard-clipped at 1.0.
 float KB_RangeCoordinate(float y)
 {
     y = max(y, 0.0);
@@ -349,7 +336,6 @@ void KB_ZoneWeights(float y, out float ws, out float wm, out float wh)
 {
     float z = KB_RangeCoordinate(y);
     float feather = 0.12;
-
     ws = 1.0 - smoothstep(max(KB_LowRange - feather, 0.0), min(KB_LowRange + feather, 1.0), z);
     wh = smoothstep(max(KB_HighRange - feather, 0.0), min(KB_HighRange + feather, 1.0), z);
     wm = saturate(1.0 - max(ws, wh));
@@ -359,8 +345,6 @@ float3 KB_ApplyWhiteBalance(float3 c)
 {
     float t = KB_Temperature * 0.01;
     float g = KB_Tint * 0.01;
-
-    // Deliberately gentle and exposure-like. Positive Temp warms; positive Tint magentas.
     float3 scale = exp2(float3(0.22 * t + 0.05 * g, -0.10 * g, -0.22 * t + 0.05 * g));
     return c * scale;
 }
@@ -378,17 +362,11 @@ float3 KB_ApplyLogWheels(float3 c)
     float y = max(KB_Luma2020(c), 0.0);
     float ws, wm, wh;
     KB_ZoneWeights(y, ws, wm, wh);
-
-    // RGB wheel moves are log/exposure-like so they continue behaving in HDR.
     float3 stops = KB_ShadowRGB * ws + KB_MidtoneRGB * wm + KB_HighlightRGB * wh;
     float levelStops = KB_ShadowLevel * ws + KB_MidtoneLevel * wm + KB_HighlightLevel * wh;
-
     c *= exp2(stops * 2.0 + levelStops);
-
-    // Offset is global and intentionally linear-light.
     c += KB_OffsetRGB * 0.10;
     c *= exp2(KB_OffsetLevel);
-
     return c;
 }
 
@@ -404,15 +382,12 @@ float3 KB_ApplySaturationAndBoost(float3 c)
 {
     float y = KB_Luma2020(c);
     float3 gray = y.xxx;
-
-    float sat = KB_Saturation / 50.0; // 50 = neutral
+    float sat = KB_Saturation / 50.0;
     c = lerp(gray, c, sat);
-
     float maxc = max(c.r, max(c.g, c.b));
     float minc = min(c.r, min(c.g, c.b));
     float chroma = maxc - minc;
     float normalizedChroma = chroma / max(max(abs(y), maxc), 1e-4);
-
     float boost = KB_ColorBoost * 0.01;
     float adaptive = boost * (1.0 - saturate(normalizedChroma));
     c = lerp(KB_Luma2020(c).xxx, c, 1.0 + adaptive);
@@ -421,8 +396,6 @@ float3 KB_ApplySaturationAndBoost(float3 c)
 
 float3 KB_HueRotate(float3 c, float angle)
 {
-    // Rotate around the neutral gray axis. This is a grading control rather than
-    // a colorspace conversion, so preserving energy matters more than exact HSV math.
     float s = sin(angle);
     float co = cos(angle);
     const float invSqrt3 = 0.57735026919;
@@ -438,10 +411,8 @@ float3 KB_Process(float3 working)
     c = KB_ApplyLogWheels(c);
     c = KB_ApplyShadowHighlight(c);
     c = KB_ApplySaturationAndBoost(c);
-
     float hueAngle = (KB_Hue - 50.0) * (6.28318530718 / 100.0);
     c = KB_HueRotate(c, hueAngle);
-
     return c;
 }
 
@@ -452,20 +423,16 @@ float3 KB_SampleWorking(float2 uv)
 
 float4 KB_HDRLogWheelsPS(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Target
 {
+    if (KB_HDRBypass)
+        return tex2D(ReShade::BackBuffer, uv);
+
     float3 center = KB_SampleWorking(uv);
     float3 graded = KB_Process(center);
 
-    // ---------------------------------------------------------------------
-    // JUICED MID DETAILS
-    // Broader 8-tap local-contrast extraction with a configurable radius.
-    // The result modulates luminance multiplicatively, which keeps hue/chroma
-    // far more stable than simply adding gray detail and scales cleanly in HDR.
-    // ---------------------------------------------------------------------
     if (abs(KB_MidDetails) > 0.0001)
     {
         float2 px = float2(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT) * KB_MidDetailRadius;
         float2 pd = px * 0.70710678118;
-
         float y0 = max(KB_Luma2020(center), 0.0);
         float y1 = max(KB_Luma2020(KB_SampleWorking(uv + float2( px.x,  0.0))), 0.0);
         float y2 = max(KB_Luma2020(KB_SampleWorking(uv + float2(-px.x,  0.0))), 0.0);
@@ -475,27 +442,18 @@ float4 KB_HDRLogWheelsPS(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Ta
         float y6 = max(KB_Luma2020(KB_SampleWorking(uv + float2(-pd.x,  pd.y))), 0.0);
         float y7 = max(KB_Luma2020(KB_SampleWorking(uv + float2( pd.x, -pd.y))), 0.0);
         float y8 = max(KB_Luma2020(KB_SampleWorking(uv + float2(-pd.x, -pd.y))), 0.0);
-
         float blurY = (y0 * 2.0 + y1 + y2 + y3 + y4 + y5 + y6 + y7 + y8) / 10.0;
         float detailNorm = (y0 - blurY) / max(blurY, 0.02);
         detailNorm = clamp(detailNorm, -1.5, 1.5);
-
         float ws, wm, wh;
         KB_ZoneWeights(y0, ws, wm, wh);
         float focus = KB_MidDetailFocus * 0.01;
         float tonalWeight = lerp(1.0, saturate(wm + 0.10 * (ws + wh)), focus);
-
-        // At 10 this is already very visible; 25-50 is intentionally absurd.
         float detailStops = detailNorm * KB_MidDetails * 0.10 * tonalWeight;
         detailStops = clamp(detailStops, -4.0, 4.0);
         graded *= exp2(detailStops);
     }
 
-    // ---------------------------------------------------------------------
-    // SUPER JUICED SHARPNESS
-    // Tight 4-tap high-pass on HDR luminance. Uses exposure-like modulation
-    // so it remains useful above reference white instead of clipping at 1.0.
-    // ---------------------------------------------------------------------
     if (KB_Sharpness > 0.0001)
     {
         float2 spx = float2(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT) * KB_SharpRadius;
@@ -504,12 +462,9 @@ float4 KB_HDRLogWheelsPS(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Ta
         float sy2 = max(KB_Luma2020(KB_SampleWorking(uv + float2(-spx.x, 0.0))), 0.0);
         float sy3 = max(KB_Luma2020(KB_SampleWorking(uv + float2(0.0,  spx.y))), 0.0);
         float sy4 = max(KB_Luma2020(KB_SampleWorking(uv + float2(0.0, -spx.y))), 0.0);
-
         float sblurY = (sy1 + sy2 + sy3 + sy4) * 0.25;
         float sharpNorm = (sy0 - sblurY) / max(sblurY, 0.02);
         sharpNorm = clamp(sharpNorm, -KB_SharpLimit, KB_SharpLimit);
-
-        // 1.0 = sensible crispness; 5+ = hard bite; 10-20 = deliberately nuclear.
         float sharpStops = sharpNorm * KB_Sharpness * 0.16;
         sharpStops = clamp(sharpStops, -3.0, 3.0);
         graded *= exp2(sharpStops);
@@ -522,8 +477,8 @@ float4 KB_HDRLogWheelsPS(float4 pos : SV_Position, float2 uv : TEXCOORD) : SV_Ta
 }
 
 technique KB_HDR_LogWheels <
-    ui_label = "KB HDR - Primaries Log Wheels";
-    ui_tooltip = "Resolve-inspired log grading in linear BT.2020 with JUICED mid-detail and HDR-aware sharpness.";
+    ui_label = "KB HDR - Primaries Log Wheels — F8 bypass";
+    ui_tooltip = "Resolve-inspired log grading in linear BT.2020 with mid-detail and HDR-aware sharpness. Press F8 to bypass/restore without changing values.";
 >
 {
     pass
