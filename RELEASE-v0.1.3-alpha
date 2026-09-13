@@ -1,0 +1,3 @@
+STAR LIFTER v0.1.3-alpha
+
+This sentinel intentionally triggers the clean-room release workflow after all supporting source, installer, configuration and packaging changes are present on main.
