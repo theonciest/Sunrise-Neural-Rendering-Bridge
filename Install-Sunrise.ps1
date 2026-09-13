@@ -20,7 +20,6 @@ try {
 
     if (!(Test-Path -LiteralPath $ManifestPath)) { throw "Release payload manifest is missing: $ManifestPath" }
 
-    # Resolve Project Sunrise. A drag-and-drop extraction into the game root is the first choice.
     $Sunrise = $null
     if ($ProjectRoot) {
         $candidate = $ProjectRoot.Trim('"')
@@ -32,9 +31,7 @@ try {
             if (Test-Path -LiteralPath (Join-Path $candidate 'destiny2.exe')) { $Sunrise = $candidate; break }
         }
     }
-    if (!$Sunrise) {
-        $Sunrise = (Read-Host 'Enter your Project Sunrise folder').Trim('"')
-    }
+    if (!$Sunrise) { $Sunrise = (Read-Host 'Enter your Project Sunrise folder').Trim('"') }
     if (!(Test-Path -LiteralPath (Join-Path $Sunrise 'destiny2.exe'))) { throw "destiny2.exe was not found in: $Sunrise" }
     if (!(Test-Path -LiteralPath (Join-Path $Sunrise 'bin\x64'))) { throw 'This does not look like Project Sunrise: bin\x64 is missing.' }
     if (Get-Process destiny2 -ErrorAction SilentlyContinue) { throw 'Close Project Sunrise before installing.' }
@@ -43,7 +40,6 @@ try {
     $ProtectedSteam = Join-Path $Sunrise 'bin\x64\steam_api64.dll'
     $ProtectedSteamHash = if (Test-Path -LiteralPath $ProtectedSteam) { (Get-FileHash -LiteralPath $ProtectedSteam -Algorithm SHA256).Hash } else { '' }
 
-    # Validate every payload source before touching the live installation.
     $Manifest = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json
     if (!$Manifest.files) { throw 'payload-manifest.json contains no files.' }
     foreach ($entry in $Manifest.files) {
@@ -54,8 +50,6 @@ try {
     }
     Pass "Validated $(@($Manifest.files).Count) packaged runtime files."
 
-    # NVIDIA proprietary runtime is intentionally user-supplied, but the installer will
-    # put it in the right place. Require it BEFORE changing the live installation.
     $UserRuntime = Join-Path $PackageRoot 'USER-RUNTIME\NVIDIA'
     $UserDlss = Join-Path $UserRuntime 'nvngx_dlss.dll'
     $UserNr   = Join-Path $UserRuntime 'nvngx_dlssnr.dll'
@@ -64,8 +58,6 @@ try {
     }
     Pass 'User-supplied NVIDIA DLSS runtime found.'
 
-    # Prepare pinned third-party runtime dependencies in TEMP first. Nothing is copied
-    # into Sunrise until both downloads/extractions have succeeded.
     $Temp = Join-Path $env:TEMP ('STAR-LIFTER-INSTALL-' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $Temp -Force | Out-Null
 
@@ -81,7 +73,11 @@ try {
         Expand-Archive -LiteralPath $RenoZip -DestinationPath $RenoDir -Force
         $RenoAddon = Get-ChildItem -LiteralPath $RenoDir -Recurse -File -Filter 'renodx-dlss5.addon64' | Select-Object -First 1
         if (!$RenoAddon) { throw 'Pinned RenoDX archive did not contain renodx-dlss5.addon64.' }
-        Pass 'Prepared pinned RenoDX DLSS5 4.60.'
+        $RenoAddonHash = (Get-FileHash -LiteralPath $RenoAddon.FullName -Algorithm SHA256).Hash
+        if ($RenoAddonHash -ne '9150097CDEE2953CDC9894D2E5606EA5100E6C8F95FC7BB1B407328B4391A07A') {
+            throw "Pinned RenoDX add-on is not the locally validated build: $RenoAddonHash"
+        }
+        Pass 'Prepared locally validated RenoDX DLSS5 4.60.'
 
         $LumZip = Join-Path $Temp 'lumenite.zip'
         $LumDir = Join-Path $Temp 'lumenite'
@@ -89,12 +85,9 @@ try {
         Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/umar-afzaal/LumeniteFX/archive/$LumCommit.zip" -OutFile $LumZip
         Expand-Archive -LiteralPath $LumZip -DestinationPath $LumDir -Force
         $LumRoot = Get-ChildItem -LiteralPath $LumDir -Directory | Select-Object -First 1
-        if (!$LumRoot -or !(Test-Path -LiteralPath (Join-Path $LumRoot.FullName 'Shaders\lumenite_Kernel.fx'))) {
-            throw 'Pinned LumeniteFX archive is incomplete.'
-        }
+        if (!$LumRoot -or !(Test-Path -LiteralPath (Join-Path $LumRoot.FullName 'Shaders\lumenite_Kernel.fx'))) { throw 'Pinned LumeniteFX archive is incomplete.' }
         Pass "Prepared pinned LumeniteFX commit $LumCommit."
 
-        # Back up every destination described by the shipped manifest.
         $BackupRoot = Join-Path $Sunrise ('_STAR_LIFTER_BACKUP\' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
         New-Item -ItemType Directory -Path $BackupRoot -Force | Out-Null
         $records = @()
@@ -109,18 +102,14 @@ try {
             $records += [pscustomobject]@{ destination=$entry.destination; hadBackup=$had }
         }
 
-        # Deploy the complete clean-room payload.
         foreach ($entry in $Manifest.files) {
             $source = Join-Path $PayloadRoot $entry.source
             $dest = Join-Path $Sunrise $entry.destination
             New-Item -ItemType Directory -Path (Split-Path -Parent $dest) -Force | Out-Null
             Copy-Item -LiteralPath $source -Destination $dest -Force
-            if ((Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $dest -Algorithm SHA256).Hash) {
-                throw "Verification failed after copying: $($entry.destination)"
-            }
+            if ((Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $dest -Algorithm SHA256).Hash) { throw "Verification failed after copying: $($entry.destination)" }
         }
 
-        # Install pinned Lumenite into ReShade's normal shader tree.
         $ShaderRoot = Join-Path $Sunrise 'reshade-shaders\Shaders'
         $TextureRoot = Join-Path $Sunrise 'reshade-shaders\Textures'
         New-Item -ItemType Directory -Path (Join-Path $ShaderRoot 'LumeniteFX') -Force | Out-Null
@@ -130,30 +119,19 @@ try {
             Copy-Item -Path (Join-Path $LumRoot.FullName 'Textures\*') -Destination (Join-Path $TextureRoot 'LumeniteFX') -Recurse -Force
         }
 
-        # Host-only neural consumer + user NVIDIA runtime.
         $Host64 = Join-Path $Sunrise 'host64'
         Copy-Item -LiteralPath $RenoAddon.FullName -Destination (Join-Path $Host64 'renodx-dlss5.addon64') -Force
         Copy-Item -LiteralPath $UserDlss -Destination (Join-Path $Host64 'nvngx_dlss.dll') -Force
         Copy-Item -LiteralPath $UserNr   -Destination (Join-Path $Host64 'nvngx_dlssnr.dll') -Force
 
-        # Configure the actual working chain, not merely the hotkeys.
         & (Join-Path $Sunrise 'CONFIGURE-STAR-LIFTER.ps1') -ProjectRoot $Sunrise
         if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw "CONFIGURE-STAR-LIFTER.ps1 failed: $LASTEXITCODE" }
 
-        # Final install assertions.
         $RequiredInstalled = @(
-            'ReShade64.dll',
-            'dlss5-feed.addon64',
-            'dlss5-feed.cfg',
-            'SUNRISE-NRB.bat',
-            'SunriseNRB\SunriseNRB.dll',
-            'SunriseNRB\SunriseNRB-Launcher.exe',
-            'host64\dlss5-feed-host64.exe',
-            'host64\dxgi.dll',
-            'host64\ReShade.ini',
-            'host64\renodx-dlss5.addon64',
-            'host64\nvngx_dlss.dll',
-            'host64\nvngx_dlssnr.dll',
+            'ReShade64.dll','dlss5-feed.addon64','dlss5-feed.cfg','SUNRISE-NRB.bat',
+            'SunriseNRB\SunriseNRB.dll','SunriseNRB\SunriseNRB-Launcher.exe',
+            'host64\dlss5-feed-host64.exe','host64\dxgi.dll','host64\ReShade.ini',
+            'host64\renodx-dlss5.addon64','host64\nvngx_dlss.dll','host64\nvngx_dlssnr.dll',
             'reshade-shaders\Shaders\DLSS5_Feed.fx',
             'reshade-shaders\Shaders\KageBlink - HDR LOG Sliders.fx',
             'reshade-shaders\Shaders\KageBlink - SideBySide.fx',
@@ -162,8 +140,10 @@ try {
         foreach ($rel in $RequiredInstalled) {
             if (!(Test-Path -LiteralPath (Join-Path $Sunrise $rel))) { throw "Post-install assertion failed: $rel" }
         }
+        if ((Get-FileHash -LiteralPath (Join-Path $Host64 'renodx-dlss5.addon64') -Algorithm SHA256).Hash -ne '9150097CDEE2953CDC9894D2E5606EA5100E6C8F95FC7BB1B407328B4391A07A') {
+            throw 'Installed RenoDX add-on hash changed.'
+        }
 
-        # Project Sunrise protected binary must never be modified by this installer.
         if ($ProtectedSteamHash) {
             $afterSteam = (Get-FileHash -LiteralPath $ProtectedSteam -Algorithm SHA256).Hash
             if ($afterSteam -ne $ProtectedSteamHash) { throw 'PROTECTED steam_api64.dll changed during install. Stop and restore your Sunrise install.' }
