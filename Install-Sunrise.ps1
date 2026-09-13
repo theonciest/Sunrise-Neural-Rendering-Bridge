@@ -11,7 +11,7 @@ function Info([string]$t) { Write-Host "[....] $t" -ForegroundColor Gray }
 try {
     Write-Host ''
     Write-Host '============================================================' -ForegroundColor Cyan
-    Write-Host ' STAR LIFTER — PROJECT SUNRISE INSTALLER' -ForegroundColor Cyan
+    Write-Host ' STAR LIFTER - PROJECT SUNRISE INSTALLER' -ForegroundColor Cyan
     Write-Host '============================================================' -ForegroundColor Cyan
 
     $PackageRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -121,8 +121,9 @@ try {
         Copy-Item -LiteralPath $UserDlss -Destination (Join-Path $Host64 'nvngx_dlss.dll') -Force
         Copy-Item -LiteralPath $UserNr   -Destination (Join-Path $Host64 'nvngx_dlssnr.dll') -Force
 
-        & (Join-Path $Sunrise 'CONFIGURE-STAR-LIFTER.ps1') -ProjectRoot $Sunrise
-        if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw "CONFIGURE-STAR-LIFTER.ps1 failed: $LASTEXITCODE" }
+        $ConfigureScript = Join-Path $Sunrise 'CONFIGURE-STAR-LIFTER.ps1'
+        & $ConfigureScript -ProjectRoot $Sunrise
+        if (-not $?) { throw 'CONFIGURE-STAR-LIFTER.ps1 reported failure.' }
 
         $RequiredInstalled = @(
             'ReShade64.dll','dlss5-feed.addon64','dlss5-feed.cfg','SUNRISE-NRB.bat',
