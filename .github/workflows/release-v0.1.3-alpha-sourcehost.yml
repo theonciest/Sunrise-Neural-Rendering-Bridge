@@ -107,7 +107,9 @@ jobs:
           if (!$addon) { throw 'RenoDX archive is missing renodx-dlss5.addon64.' }
           $addonHash = (Get-FileHash $addon.FullName -Algorithm SHA256).Hash
           "RENODX_RESOLVED_ADDON_SHA256=$addonHash" >> $env:GITHUB_ENV
-          Write-Host "[PASS] Pinned RenoDX archive verified. Extracted add-on SHA256: $addonHash"- name: Build Microsoft Detours 4.0.1
+          Write-Host "[PASS] Pinned RenoDX archive verified. Extracted add-on SHA256: $addonHash"
+
+      - name: Build Microsoft Detours 4.0.1
         shell: pwsh
         run: |
           $detours = "$env:RUNNER_TEMP\detours"
