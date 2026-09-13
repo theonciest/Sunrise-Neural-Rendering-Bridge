@@ -8,6 +8,7 @@ Set-StrictMode -Version Latest
 function Pass([string]$Text) { Write-Host "[PASS] $Text" -ForegroundColor Green }
 function Info([string]$Text) { Write-Host "[....] $Text" -ForegroundColor Gray }
 
+$ProjectRoot = $ProjectRoot.Trim().Trim('"')
 $ProjectRoot = (Resolve-Path -LiteralPath $ProjectRoot).Path
 $ReShadeIni = Join-Path $ProjectRoot 'ReShade.ini'
 $PresetPath = Join-Path $ProjectRoot 'ReShadePreset.ini'
