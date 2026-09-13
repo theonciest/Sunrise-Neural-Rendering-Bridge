@@ -56,6 +56,8 @@ On the validated RTX 3080 Ti configuration:
 
 ## Install
 
+The install order has **not changed** for the current Star Lifter development build. The recent F4–F8 control work changes runtime controls, not the folder layout or base install sequence.
+
 ### 1. Start with a working Project Sunrise install
 
 Make sure Project Sunrise launches normally before installing Star Lifter.
@@ -100,12 +102,17 @@ Run:
 This preserves your existing ReShade installation while setting the Star Lifter controls and comparison behavior:
 
 - ReShade overlay input mode = **block game input while the overlay is open**
-- **F5** = save a matched **Before + After** screenshot pair
-- **F6** = toggle the complete ReShade effect chain
+- **F4** = show / hide the DLSS 5 feeder panel in-game
+- **F5** = toggle DLSS Neural Rendering through the feeder's host-settings path
+- **F6** = save a matched **Before + After** screenshot pair
 - **F7** = toggle Star Lifter side-by-side comparison
+- **F8** = toggle KageBlink HDR grading on / off
 - **Ctrl + Shift + O** = ReShade overlay
 
 A backup of your existing `ReShade.ini` is created before it is changed.
+
+> [!NOTE]
+> The current F5 implementation applies the Neural Rendering state through the feeder's host settings and restarts the helper host. A brief host interruption while the setting is applied is expected. This is different from RenoDX's old background `NRToggleKey` path and avoids relying on a simulated global F5 hotkey.
 
 ### 5. Supply the NVIDIA runtime
 
@@ -144,13 +151,15 @@ Do **not** use the older experimental SunriseNRB launchers.
 |---|---|
 | Open / close ReShade | **Ctrl + Shift + O** |
 | Open Project Sunrise UI | **Insert** |
-| Save Before + After screenshot pair | **F5** |
-| Toggle all ReShade effects | **F6** |
+| Show / hide DLSS 5 feeder panel | **F4** |
+| Toggle DLSS Neural Rendering | **F5** |
+| Save Before + After screenshot pair | **F6** |
 | Toggle side-by-side comparison | **F7** |
+| Toggle KageBlink HDR grading | **F8** |
 
 Star Lifter configures ReShade with `InputProcessing=2`, so while the ReShade overlay is open Destiny should **not** keep receiving mouse movement or keyboard input in the background. This makes slider adjustment and image comparison much easier.
 
-The separate D3D12 host window is expected and should remain open while using the bridge.
+The DLSS helper runs separately from Destiny. With the normal `host_window=0` feeder configuration its tuning panel is accessed from inside the game with **F4**.
 
 ## Comparison tools
 
@@ -177,9 +186,11 @@ Press **F7** to switch the side-by-side presentation on/off. With F7 off, the ou
 
 ### Before / After screenshots
 
-Press **F5** once. ReShade is configured with `SaveBeforeShot=1`, so one keypress writes a matched **Before** image and **After** image from the same screenshot request.
+Press **F6** once. ReShade is configured with `SaveBeforeShot=1`, so one keypress writes a matched **Before** image and **After** image from the same screenshot request.
 
-Press **F6** when you simply want to toggle the complete ReShade chain live without changing the preset.
+### HDR grading
+
+The KageBlink HDR grading shader exposes the current temperature, tint, shadow/midtone/highlight, range, RGB, color boost, saturation, mid-detail and sharpness controls. Press **F8** to bypass / restore the HDR grading shader without changing the saved values.
 
 ## Status
 
@@ -190,6 +201,11 @@ Press **F6** when you simply want to toggle the complete ReShade chain live with
 | DLSS Neural Rendering | ✅ Working |
 | ReShade / Sunrise coexistence | ✅ Working |
 | Project Sunrise Insert UI | ✅ Working |
+| F4 feeder panel | ✅ Working |
+| F5 Neural Rendering toggle | ✅ Working through host-settings restart path |
+| F6 matched Before / After screenshots | ✅ Working |
+| F7 side-by-side comparison | ✅ Working |
+| F8 HDR grading bypass | ✅ Working |
 | Neural Rendering Work Scale | ✅ 50–100%; below 50% is the next validation target |
 | FSR3 Frame Generation | 🧪 Experimental |
 
