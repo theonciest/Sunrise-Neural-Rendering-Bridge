@@ -75,7 +75,8 @@ try {
         if (!$RenoAddon) { throw 'Pinned RenoDX archive did not contain renodx-dlss5.addon64.' }
         $RenoAddonHash = (Get-FileHash -LiteralPath $RenoAddon.FullName -Algorithm SHA256).Hash
         Pass 'Prepared pinned public RenoDX DLSS5 4.60 archive.'
-        Info "Resolved RenoDX add-on SHA256: $RenoAddonHash"$LumZip = Join-Path $Temp 'lumenite.zip'
+        Info "Resolved RenoDX add-on SHA256: $RenoAddonHash"
+        $LumZip = Join-Path $Temp 'lumenite.zip'
         $LumDir = Join-Path $Temp 'lumenite'
         $LumCommit = 'f8cbbb4eccfcb7adf0d74bb358ba349272e3c1e9'
         Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/umar-afzaal/LumeniteFX/archive/$LumCommit.zip" -OutFile $LumZip
@@ -140,7 +141,8 @@ try {
         if ($InstalledRenoHash -ne $RenoAddonHash) {
             throw 'Installed RenoDX add-on hash changed during copy.'
         }
-        Pass "Installed RenoDX add-on SHA256: $InstalledRenoHash"if ($ProtectedSteamHash) {
+        Pass "Installed RenoDX add-on SHA256: $InstalledRenoHash"
+        if ($ProtectedSteamHash) {
             $afterSteam = (Get-FileHash -LiteralPath $ProtectedSteam -Algorithm SHA256).Hash
             if ($afterSteam -ne $ProtectedSteamHash) { throw 'PROTECTED steam_api64.dll changed during install. Stop and restore your Sunrise install.' }
         }
@@ -151,7 +153,9 @@ try {
             renodxArchiveSha256=$RenoHash
             renodxAddonSha256=$InstalledRenoHash
             files=$records
-        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $BackupRoot 'installed-manifest.json') -Encoding UTF8Write-Host ''
+        } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $BackupRoot 'installed-manifest.json') -Encoding UTF8
+
+        Write-Host ''
         Write-Host '============================================================' -ForegroundColor Green
         Write-Host ' STAR LIFTER INSTALLATION COMPLETE' -ForegroundColor Green
         Write-Host '============================================================' -ForegroundColor Green

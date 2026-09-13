@@ -1,3 +1,3 @@
-STAR LIFTER v0.1.3-alpha source-built helper clean-room release trigger v7
-Triggered: 2026-09-12T23:41:56-04:00
-Purpose: fix actual fxc.exe discovery + default host FSR3 unresolved externals.
+STAR LIFTER v0.1.3-alpha source-built helper clean-room release trigger v8
+Triggered: 2026-09-13T00:27:26-04:00
+Purpose: repair installer newline concatenation bugs and remove BAT UTF-8 BOM.
