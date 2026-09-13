@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-Sunrise Neural Rendering Bridge is an independent interoperability project. It is not affiliated with or endorsed by NVIDIA, AMD, Bungie, ReShade, RenoDX, Microsoft, Project Sunrise, or any other third-party project referenced below.
+Star Lifter / Sunrise Neural Rendering Bridge is an independent interoperability project. It is not affiliated with or endorsed by NVIDIA, AMD, Bungie, ReShade, RenoDX, Microsoft, LumeniteFX, Project Sunrise, or any other third-party project referenced below.
 
 ## Upstream DLSS5-Feeder
 
@@ -9,6 +9,8 @@ This project is based on **DLSS5-Feeder by Jean-Laurent ROUZIES**.
 The upstream project is licensed under the MIT License. The original copyright and permission notice are preserved in this repository's `LICENSE` file.
 
 Upstream repository: `jlrouzies-fr/DLSS5-Feeder`
+
+The v0.1.3-alpha clean-room release obtains the known-good v0.12.0 helper from the upstream v0.12.0 release and verifies its archive and helper hashes before packaging.
 
 ## ReShade
 
@@ -32,13 +34,19 @@ Microsoft Detours is distributed under the MIT License. The complete license tex
 
 Official project: `microsoft/Detours`
 
-## RenoDX
+## RenoDX DLSS5
 
-RenoDX is distributed under the MIT License.
+Star Lifter does not redistribute the RenoDX DLSS5 binary in its release ZIP. The installer downloads the pinned public **RenoDX DLSS5 4.60** release directly from its upstream release host and verifies the archive SHA-256 before installing the add-on into `host64`.
 
-Official project: `clshortfuse/renodx`
+Upstream project/release mirror used by the installer: `RankFTW/rhi-repo`, tag `renodx-dlss5-4.60`.
 
-If RenoDX components are redistributed with a release, preserve the applicable MIT copyright and permission notice.
+## LumeniteFX
+
+Star Lifter does not copy LumeniteFX into the release ZIP. The installer downloads a pinned public LumeniteFX source revision directly from `umar-afzaal/LumeniteFX` and installs its shader/runtime files into the user's ReShade shader tree.
+
+Pinned v0.1.3-alpha revision: `f8cbbb4eccfcb7adf0d74bb358ba349272e3c1e9`.
+
+LumeniteFX remains subject to its own notices and license terms supplied by its upstream repository.
 
 ## AMD FidelityFX SDK / FSR
 
@@ -50,14 +58,14 @@ Official project: `GPUOpen-LibrariesAndSDKs/FidelityFX-SDK`
 
 ## NVIDIA DLSS / NGX Runtime
 
-**NVIDIA runtime binaries are not part of this project's open-source code and are not included in the public bridge package by default.**
+**NVIDIA runtime binaries are not included in the public Star Lifter package.**
 
-Users supply their own legitimate NVIDIA runtime files where required:
+Users supply legitimate copies of:
 
 - `nvngx_dlss.dll`
 - `nvngx_dlssnr.dll`
 
-The bridge loads and interoperates with those vendor-provided runtime components. It does not claim ownership of, relicense, or modify NVIDIA's proprietary runtime binaries.
+The installer copies those user-supplied files into the helper runtime location. Star Lifter does not claim ownership of, relicense, or modify NVIDIA's proprietary runtime binaries.
 
 Official NVIDIA DLSS repository: `NVIDIA/DLSS`
 
@@ -69,6 +77,4 @@ Public releases must not contain Bungie game assets, `destiny2.exe`, Project Sun
 
 ## Public release rule
 
-Before publishing a binary release, verify the actual files in that release against their applicable licenses.
-
-**Default public-package policy:** ship the bridge and permitted dependencies; require users to supply NVIDIA runtime binaries separately.
+Every public Star Lifter release is assembled from an empty staging directory. The finished ZIP is extracted into a second clean directory and validated before publication. Forbidden vendor/game files and stale test/backup artifacts cause the release job to fail.
