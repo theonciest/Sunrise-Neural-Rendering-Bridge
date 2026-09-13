@@ -58,21 +58,24 @@ $iniText = Set-IniValue $iniText 'INPUT' 'InputProcessing' '2'
 # Ctrl + Shift + O = ReShade overlay.
 $iniText = Set-IniValue $iniText 'INPUT' 'KeyOverlay' '79,1,1,0'
 
-# F5 = screenshot. SaveBeforeShot=1 makes the same key create Before + After images.
-$iniText = Set-IniValue $iniText 'INPUT' 'KeyScreenshot' '116,0,0,0'
+# F6 = screenshot. SaveBeforeShot=1 makes the same key create Before + After images.
+# F5 is reserved for Star Lifter's game-side DLSS Neural Rendering toggle.
+$iniText = Set-IniValue $iniText 'INPUT' 'KeyScreenshot' '117,0,0,0'
 $iniText = Set-IniValue $iniText 'SCREENSHOT' 'SaveBeforeShot' '1'
 
-# F6 = toggle the complete ReShade effect chain.
-$iniText = Set-IniValue $iniText 'INPUT' 'KeyEffects' '117,0,0,0'
+# Free the old F6 global effect-chain binding so it cannot collide with screenshots.
+$iniText = Set-IniValue $iniText 'INPUT' 'KeyEffects' '0,0,0,0'
 
 $iniText = Set-IniValue $iniText 'OVERLAY' 'ShowScreenshotMessage' '1'
 
 [IO.File]::WriteAllText($ReShadeIni, $iniText, (New-Object Text.UTF8Encoding($false)))
 Write-Pass 'ReShade input + comparison hotkeys configured.'
 Write-Host '       Ctrl + Shift + O = ReShade overlay'
-Write-Host '       F5               = Before + After screenshot pair'
-Write-Host '       F6               = Toggle all ReShade effects'
+Write-Host '       F4               = DLSS 5 feeder panel (feeder-owned)'
+Write-Host '       F5               = Toggle DLSS Neural Rendering (feeder-owned)'
+Write-Host '       F6               = Before + After screenshot pair'
 Write-Host '       F7               = Toggle Star Lifter side-by-side (shader-owned)'
+Write-Host '       F8               = Toggle KageBlink HDR grading (shader-owned)'
 
 if (Test-Path -LiteralPath $SideBySide) { Write-Pass "Comparison shader present: $SideBySide" }
 else { Write-Warning "Missing comparison shader: $SideBySide" }
